@@ -2,7 +2,6 @@
 
 source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
 
-
 ##  Take formatted data from Meningioma Wrangler output
 snps <- val.snp
 indels <- val.indel
@@ -33,7 +32,7 @@ short.indels[, 6] <- 1
 names(short.snps.15)[5] <- "tumor_f"
 snindels.15 <- rbind(short.snps.15, short.indels)
 names(snindels.15)[6] <- "Indel"
-
+ 
 
 ## Remove mitochondrial associated genes
 mt.bool <- substr(snindels$Hugo_Symbol, 1, 3) == "MT-"
