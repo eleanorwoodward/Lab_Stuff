@@ -123,5 +123,5 @@ chr <- paste(prefix, intervals[, 1], sep = "")
 start.pos <- sapply(as.numeric(intervals[, 2]), '-', 1)
 end.pos <- sapply(as.numeric(intervals[,3]), '-', 1)
 bait.file <- cbind(chr, start.pos, end.pos)
-
+write.table(bait.file, "custombait.bed", sep = "\t", row.names = FALSE)
 

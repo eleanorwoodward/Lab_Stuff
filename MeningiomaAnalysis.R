@@ -60,6 +60,9 @@ nonpaired.tbl <- data.frame(nonpaired.table)
 boxplot(paired.tbl$Freq, nonpaired.tbl$Freq, names = c("Paired Samples", "Unpaired Samples"),
         main = "Comparison of mutations per sample for paired and unpaired")
 
+x <- c(nrow(paired) / length(unique(paired$Tumor_Sample_Barcode)), nrow(nonpaired) / length(unique(nonpaired$Tumor_Sample_Barcode)))
+barplot(x, names.arg = c("Paired Samples", "Unpaired Samples"), main = "Average number of mutations per sample")
+
 ## Number of paired samples vs unpaired samples with mutations
 length(unique(paired$Tumor_Sample_Barcode))
 length(unique(nonpaired$Tumor_Sample_Barcode))
@@ -88,12 +91,71 @@ snindels5 <- ReccurentMaf(snin.unique, "Hugo_Symbol", 4)
 snindels10 <- ReccurentMaf(snin.unique, "Hugo_Symbol", 9)
 PlotMaf(snindels5, "Hugo_Symbol", 2, "SNP + Indel Mutations in Genes with at least 5 hits")
 
+# Shows difference in mutation calls for differnt filter levels
+FilterCutoffMaf(snindels, snindels.15, 4, "PoN -2.5 Cutoff", "PoN -1.5 Cutoff", "Effect of PoN filtering on highly mutated genes")
 
-FilterCutoffMaf(snindels, snindels.15, 8, "PoN -2.5 Cutoff", "PoN -1.5 Cutoff", "Effect of PoN filtering on highly mutated genes")
+# Calculate ratio of silent to coding
+coding.variants <- c("Missense_Mutation", "Nonsense_Mutation", "Splice_Site", "Nonstop_Mutation", 
+                     "De_Novo_Start_OutOfFrame", "Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins")
+noncoding.variants <- "Silent"
 
-## Remove other problem genes from data set
-bad.boys <- c("CDC27")
-snindels <- FilterMaf(snindels, bad.boys, "Hugo_Symbol", FALSE)
+RatioMaf(snindels.nf, "Variant_Classification", coding.variants, noncoding.variants)
+
+silent.maf <- FilterMaf(snindels.nf, c(coding.variants, noncoding.variants), "Variant_Classification")
+
+
+small <- FilterMaf(silent.maf, snindels5$Hugo_Symbol, "Hugo_Symbol")
+silent <- FilterMaf(small, noncoding.variants, "Variant_Classification")
+loud <- FilterMaf(small, coding.variants, "Variant_Classification")
+table1 <- table(silent$Hugo_Symbol)
+table2 <- table(loud$Hugo_Symbol)
+table3 <- EqualizeTable(table2, table1)
+barplot(table3, beside = TRUE, main = "Silent vs NonSilent Mutations, multiple per sample", 
+        legend.text = c("Coding Mutations", "Silent Mutations"), las = 2)
+
+## Find all mutations with given ratio of silent to coding
+pass <- c()
+for(i in 1:length(colnames(table3))){
+  silent <- table3[2*i]
+  coding <- table3[2*i - 1]
+  if (silent == 0 | coding / silent >= 5 & coding > 7){
+    pass <- c(pass, colnames(table3)[i])
+  }
+}
+
+
+## Comparison of frameshift/nonsese vs others
+working.maf <- ReccurentMaf(snindels, "Hugo_Symbol", 5)
+working.maf <- PerSampleMaf(working.maf, "Hugo_Symbol")
+table2 <- table(working.maf$Hugo_Symbol)
+table1 <- table(FilterMaf(working.maf, c("Nonsense_Mutation", "Splice_Site", "Frame_Shift_Ins", "Frame_Shift_Del", "De_novo_Start_OutOfFrame"), 
+            "Variant_Classification")$Hugo_Symbol)
+table3 <- EqualizeTable(table1,table2)
+barplot(table3, main = "Frameshift/Nonsense/Splice/DeNovoStart vs Total Coding", 
+        legend.text = c("Damaging Mutations", "All coding"), las = 2, beside = TRUE, args.legend = list(x = "topleft"))
+
+
+## Hotspot finder
+snindels11 <- ReccurentMaf(snindels, "Hugo_Symbol", 4)
+gene.list <- sort(unique(snindels11$Hugo_Symbol))
+mtrx <- matrix(0, 40, length(gene.list))
+for(i in 1:length(gene.list)){
+  temp <- FilterMaf(snindels11, gene.list[i], "Hugo_Symbol")
+  x <- table(temp$Start_position)
+  x <- sort(unname(x), decreasing = TRUE)
+  if (length(x) > 40){
+    x <- x[1:40]
+  }
+  
+  if (length(x) < 40){
+    temp <- 40 - length(x)
+    x <- c(x, rep(0, temp))
+  }
+  mtrx[,i] <- x
+}
+
+barplot(mtrx, main = "Mutations grouped by base start position", names.arg = gene.list, las = 2)
+
 
 ## Fig 2. Average allelic fraction of mutations in a given sample
 snindels.156 <- snindels[snindels$Tumor_Sample_Barcode == "M156-tumor", ]
@@ -102,21 +164,9 @@ avgs.156 <- AverageMaf(snindels.156, genelist.156, "Hugo_Symbol","i_tumor_f")
 barplot(avgs.156, names.arg = genelist.156, main = "Fig 2. Average Allelic Fraction of SNPs in M156", las = 2)
 
 
-## Comparison of frameshift/nonsese vs others
-working.maf <- ReccurentMaf(snindels, "Hugo_Symbol", 5)
-table2 <- table(working.maf$Hugo_Symbol)
-table1 <- table(FilterMaf(working.maf, c("Nonsense_Mutation", "Splice_Site", "Frame_Shift_Ins", "Frame_Shift_Del", "De_novo_Start_OutOfFrame"), 
-            "Variant_Classification")$Hugo_Symbol)
-table1.names <- names(table1)
-table2.names <- names(table2)
-table3 <- EqualizeTable(table1,table2)
-barplot(table3, main = "Frameshift/Nonsense/Splice/DeNovoStart vs Total Coding", 
-        legend.text = c("Damaging Mutations", "All coding"), las = 2, beside = TRUE)
-
-
 ## Fig 3. Average allelic fraction of genes mutated at least twice
-genlist <- sort(unique(snindels2$Hugo_Symbol))
-avgs <- AverageMaf(snindels2, genlist, "Hugo_Symbol", "tumor_f")
+genlist <- sort(c("CRIPAK", "FRG1", "FRG1B", "NF2", "PRB1", "STK19", "APOBR", "FAM155A"))
+avgs <- AverageMaf(snindels5, genlist, "Hugo_Symbol", "tumor_f")
 barplot(avgs, names.arg = genlist, main = "Fig 3. Allelic Fraction of SNPs + Indels", las = 2)
 
 ## Fig 4. Mutations in NF2 mutated samples
@@ -143,48 +193,6 @@ abline(h = nrow(paired) / length(unique(paired$Hugo_Symbol)))
 
 PlotMaf(nonpaired, "Hugo_Symbol", 2, "SNPS + Indels in NonPaired Samples")
 abline(h = nrow(nonpaired) / length(unique(nonpaired$Hugo_Symbol)))
-
-coding.variants <- c("Missense_Mutation", "Nonsense_Mutation", "Splice_Site", "Nonstop_Mutation", 
-                     "De_Novo_Start_OutOfFrame", "Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins")
-noncoding.variants <- "Silent"
-
-RatioMaf(snindels.nf, "Variant_Classification", coding.variants, noncoding.variants)
-
-
-silent.maf <- FilterMaf(snindels.nf, c(coding.variants, noncoding.variants), "Variant_Classification")
-
-small <- FilterMaf(silent.maf, snindels5$Hugo_Symbol, "Hugo_Symbol")
-silent <- FilterMaf(small, noncoding.variants, "Variant_Classification")
-loud <- FilterMaf(small, coding.variants, "Variant_Classification")
-table1 <- table(silent$Hugo_Symbol)
-table2 <- table(loud$Hugo_Symbol)
-table3 <- EqualizeTable(table2, table1)
-barplot(table3, beside = TRUE, main = "Silent vs NonSilent Mutations", 
-        legend.text = c("Coding Mutations", "Silent Mutations"), las = 2)
-
-
-
-## Hotspot finder
-snindels11 <- ReccurentMaf(snindels, "Hugo_Symbol", 10)
-gene.list <- sort(unique(snindels11$Hugo_Symbol))
-mtrx <- matrix(0, 40, length(gene.list))
-for(i in 1:length(gene.list)){
-  temp <- FilterMaf(snindels11, gene.list[i], "Hugo_Symbol")
-  x <- table(temp$Start_position)
-  x <- sort(unname(x), decreasing = TRUE)
-  if (length(x) > 40){
-    x <- x[1:40]
-  }
-  
-  if (length(x) < 40){
-    temp <- 40 - length(x)
-    x <- c(x, rep(0, temp))
-  }
-  mtrx[,i] <- x
-}
-
-barplot(mtrx, main = "Mutations grouped by base start position", names.arg = gene.list, las = 2)
-
 
 x <- FilterMaf(snindels, "NF2", "Hugo_Symbol")
 y <- x[, c("Start_position", "Variant_Classification", "Tumor_Sample_Barcode")]
