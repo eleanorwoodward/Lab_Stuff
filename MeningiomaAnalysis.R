@@ -32,6 +32,12 @@ short.indels[, 6] <- 1
 names(short.snps.15)[5] <- "tumor_f"
 snindels.15 <- rbind(short.snps.15, short.indels)
 names(snindels.15)[6] <- "Indel"
+
+## Filter comparison
+exac.afs <- c(.000005, .00005, .0005, .005, .01, .05)
+pon.logs <- c(-3.75, -3.5,-3.25, -3.0, -2.75, -2.5, -2.25, -2, -1.75, -1.5, -1.25, -1.0)
+
+run.compare(pon.logs, "PoN")
  
 
 ## Remove mitochondrial associated genes
