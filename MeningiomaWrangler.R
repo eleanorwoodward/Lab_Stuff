@@ -3,6 +3,9 @@
 
 source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
 
+indel.variants <- c("Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins", "Splice_Site", "Start_Codon_Del", "Stop_Codon_Del")
+snp.variants <- c("De_novo_Start_OutOfFrame", "Missense_Mutation", "Nonsense_Mutation", "Nonstop_Mutation", "Splice_Site", "Start_Codon_SNP")
+
 
 ## Generate differently filtered MAFs for analysis
 val.snp.original <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/Val829.annotated", 
@@ -17,8 +20,7 @@ val.snp.no.filter <- run.pon(val.snp.no.filter, -2.5)
 
 val.snp.all.muts <- val.snp.no.filter[val.snp.no.filter$pon_germline == FALSE, ]
 
-val.snp <- FilterMaf(val.snp.no.filter, c("De_novo_Start_OutOfFrame", "Missense_Mutation", "Nonsense_Mutation", 
-                                          "Nonstop_Mutation", "Splice_Site"), "Variant_Classification")
+val.snp <- FilterMaf(val.snp.no.filter, snp.variants, "Variant_Classification")
 val.snp.1.5 <- run.pon(val.snp, -1.5)
 val.snp <- val.snp[val.snp$pon_germline == FALSE, ]
 val.snp.1.5 <- val.snp.1.5[val.snp.1.5$pon_germline == FALSE, ]
@@ -37,13 +39,38 @@ val.indel.no.filter$Tumor_Sample_Barcode <- sapply(val.indel.no.filter$Tumor_Sam
 val.indel.all.muts <- val.indel.no.filter[val.indel.no.filter$esp_germline == FALSE, ]
 val.indel.all.muts <- val.indel.no.filter[val.indel.all.muts$germline == FALSE, ]
 
-val.indel <- FilterMaf(val.indel.no.filter, c("Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", 
-                                              "In_Frame_Ins", "Splice_Site"), "Variant_Classification")
+val.indel <- FilterMaf(val.indel.no.filter, indel.variants, "Variant_Classification")
 
 val.indel <- val.indel[val.indel$germline == FALSE, ]
 val.indel <- val.indel[val.indel$esp_germline == FALSE, ]
 
 
+
+## Discovery analysis 
+disc.snp.no.filter <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/DiscoverySnps.txt", 
+                                 stringsAsFactors=FALSE, comment.char = "#")
+
+disc.indel.no.filter <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/DiscoveryIndels.txt", 
+                                 stringsAsFactors=FALSE, comment.char = "#")
+
+disc.indel <- FilterMaf(disc.indel.no.filter, indel.variants, "Variant_Classification")
+
+disc.snp <- FilterMaf(disc.snp.no.filter, snp.variants, "Variant_Classification")
+
+recurrences <- c("MEN0030-TumorB", "MEN0042-TumorB", "MEN0042-TumorC", "MEN0042-TumorC", "MEN0045-TumorB", "MEN0045-TumorC", "MEN0045-TumorD", "MEN0045-TumorE",
+   "MEN0048-TumorB", "MEN0048-TumorC", "MEN0048-TumorD", "MEN0093-TumorB", "MEN0093-TumorC", "MEN0093-TumorD", "MEN0093-TumorE", "MEN0097-TumorA", 
+   "MEN0097-TumorB", "MEN0097-TumorC", "MEN0101-TumorB", "MEN0118-TumorB", "MEN0119-TumorB", "MEN0120-TumorB")
+
+disc.snp.primary <- FilterMaf(disc.snp, recurrences, "Tumor_Sample_Barcode", FALSE)
+disc.indel.primary <- FilterMaf(disc.indel, recurrences, "Tumor_Sample_Barcode", FALSE)
+
+## Combine SNPs and Indels into one maf, keeping relevant columns
+short.snps.disc <- MiniMaf(disc.snp.primary, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position"))
+short.snps.disc[, 6] <- 0
+short.indels.disc <- MiniMaf(disc.indel.primary, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position"))
+short.indels.disc[, 6] <- 1
+snindels.disc <- rbind(short.snps.disc, short.indels.disc)
+names(snindels.disc)[6] <- "Indel"
 
 
 ## Read in Strelka calls if needed
