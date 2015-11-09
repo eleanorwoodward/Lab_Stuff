@@ -56,21 +56,33 @@ disc.indel.no.filter <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analy
 disc.indel <- FilterMaf(disc.indel.no.filter, indel.variants, "Variant_Classification")
 
 disc.snp <- FilterMaf(disc.snp.no.filter, snp.variants, "Variant_Classification")
+disc.snp.silent <- FilterMaf(disc.snp.no.filter, c(snp.variants, "Silent"), "Variant_Classification")
 
 recurrences <- c("MEN0030-TumorB", "MEN0042-TumorB", "MEN0042-TumorC", "MEN0042-TumorC", "MEN0045-TumorB", "MEN0045-TumorC", "MEN0045-TumorD", "MEN0045-TumorE",
    "MEN0048-TumorB", "MEN0048-TumorC", "MEN0048-TumorD", "MEN0093-TumorB", "MEN0093-TumorC", "MEN0093-TumorD", "MEN0093-TumorE", "MEN0097-TumorA", 
    "MEN0097-TumorB", "MEN0097-TumorC", "MEN0101-TumorB", "MEN0118-TumorB", "MEN0119-TumorB", "MEN0120-TumorB")
 
 disc.snp.primary <- FilterMaf(disc.snp, recurrences, "Tumor_Sample_Barcode", FALSE)
+disc.snp.primary.silent <- FilterMaf(disc.snp.silent, recurrences, "Tumor_Sample_Barcode", FALSE)
 disc.indel.primary <- FilterMaf(disc.indel, recurrences, "Tumor_Sample_Barcode", FALSE)
 
 ## Combine SNPs and Indels into one maf, keeping relevant columns
+silent.snps.disc <- MiniMaf(disc.snp.primary.silent, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position"))
+silent.snps.disc[, 6] <- 0
+silent.indels.disc <- MiniMaf(disc.indel.primary, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position"))
+silent.indels.disc[, 6] <- 1
+snindels.disc.silent <- rbind(silent.snps.disc, silent.indels.disc)
+names(snindels.disc.silent)[6] <- "Indel"
+names(snindels.disc.silent)[5] <- "tumor_f"
+
+
 short.snps.disc <- MiniMaf(disc.snp.primary, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position"))
 short.snps.disc[, 6] <- 0
 short.indels.disc <- MiniMaf(disc.indel.primary, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position"))
 short.indels.disc[, 6] <- 1
 snindels.disc <- rbind(short.snps.disc, short.indels.disc)
 names(snindels.disc)[6] <- "Indel"
+names(snindels.disc)[5] <- "tumor_f"
 
 
 ## Read in Strelka calls if needed
@@ -144,11 +156,12 @@ intervals <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Firehose/TargetL
 ## convert to bed
 intervals <- intervals[-(1:88), ]
 
-
-prefix <- rep("Chr", nrow(intervals))
-chr <- paste(prefix, intervals[, 1], sep = "")
+chr <-intervals[, 1]
 start.pos <- sapply(as.numeric(intervals[, 2]), '-', 1)
 end.pos <- sapply(as.numeric(intervals[,3]), '-', 1)
-bait.file <- cbind(chr, start.pos, end.pos)
-write.table(bait.file, "custombait.bed", sep = "\t", row.names = FALSE)
+targets <- seq_along(chr)
+text <- rep("target_", length(targets))
+targets <- paste(text, targets, sep = "")
+bait.file <- cbind(chr, start.pos, end.pos, targets)
+write.table(bait.file, "custombait.bed", sep = "\t", row.names = FALSE, col.names = FALSE, quote = FALSE)
 
