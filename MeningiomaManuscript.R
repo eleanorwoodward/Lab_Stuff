@@ -16,18 +16,22 @@ cor(mtx)
 cor.test(mtx)
 
 
-## Screen for real mutations
-snin.unique <- PerSampleMaf(snindels, "Hugo_Symbol")
-
-## Set threshold for filtering
+## Screen for real mutations at given cutoff
 snindels.elim <- ReccurentMaf(snindels, "Hugo_Symbol", 4)
+
+snindels.tot <- rbind(snindels, snindels.disc)
+snindels.tot <- ReccurentMaf(snindels.tot, "Hugo_Symbol", 4)
+snindels.elim <- snindels.tot
+snindels.nf <- rbind(snindels.nf, snindels.disc.silent)
+
+
 coding.variants <- c("Missense_Mutation", "Nonsense_Mutation", "Splice_Site", "Nonstop_Mutation", 
-                     "De_Novo_Start_OutOfFrame", "Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins")
+                     "De_novo_Start_OutOfFrame", "Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins")
 noncoding.variants <- "Silent"
 
 silent.maf <- FilterMaf(snindels.nf, c(coding.variants, noncoding.variants), "Variant_Classification")
 
-PlotMaf(snindels.elim, "Hugo_Symbol", 2, "SNP + Indel Mutations in Genes with at least 5 hits")
+PlotMaf(snindels.elim, "Hugo_Symbol", 2, "Mutations in Genes with at least 5 hits")
 
 small <- FilterMaf(silent.maf, snindels.elim$Hugo_Symbol, "Hugo_Symbol")
 silent <- FilterMaf(small, noncoding.variants, "Variant_Classification")
@@ -66,14 +70,14 @@ cols <- rep(c("red", "grey"), cutoff1 - 1)
 cols <- c(cols, rep(c("lightsalmon3", "grey"), cutoff2 -  cutoff1))
 cols <- c(cols, rep(c("lightblue", "grey"), cutoff3 - cutoff2))
 colors <- c(cols, rep("grey", (ncol(df) - cutoff3 + 1) * 2 ))
-barplot(as.matrix(df[1:2, 1: cutoff4]), beside = TRUE, main = "Ratio of Silent to Coding Mutations", 
+barplot(as.matrix(df[1:2, 1: cutoff4]), beside = TRUE, main = "Silent Mutations vs Coding Mutations", 
         las = 2, col = colors)
 legend("topright", c("Fewer than 20% silent", "Fewer than 30% silent", "Fewer than 40% Silent", "Silent Mutations"), 
        col = c("red", "lightsalmon3", "lightblue", "grey"), pch = 15)
 
 
 ## Look at damaging mutations only, with cutoff from previous step
-snindels.elim.silent <- FilterMaf(snindels.elim, names(df)[1:cutoff2], "Hugo_Symbol")
+snindels.elim.silent <- FilterMaf(snindels.elim, names(df)[1:cutoff1], "Hugo_Symbol")
 table2 <- table(snindels.elim.silent$Hugo_Symbol)
 table1 <- table(FilterMaf(snindels.elim.silent, c("Nonsense_Mutation", "Splice_Site", "Frame_Shift_Ins", "Frame_Shift_Del", "De_novo_Start_OutOfFrame"), 
                           "Variant_Classification")$Hugo_Symbol)
@@ -99,5 +103,46 @@ colors <- c(cols, rep("grey", (ncol(df) - cutoff2 + 1) * 2 ))
 barplot(as.matrix(df[1:2, 1: (cutoff2 + 2)]), main = "Damaging Mutations vs Total Coding", las = 2, beside = TRUE, col = colors)
 legend("topright", c("Greater than 80% damaging", "Greater than 40% Damaging", "Total Coding Mutations"), 
        col = c("red", "lightsalmon3", "grey"), pch = 15)
+final.list <- names(df)[1:(cutoff1 - 1)]
+
+## Look for hotspot mutations
+gene.list <- sort(unique(snindels.elim.silent$Hugo_Symbol))
+
+## Construct matrix
+mtrx <- matrix(0, 41, length(gene.list))
+colnames(mtrx) <- gene.list
+for(i in 1:length(gene.list)){
+  temp <- FilterMaf(snindels.elim.silent, gene.list[i], "Hugo_Symbol")
+  x <- table(temp$Start_position)
+  x <- sort(unname(x), decreasing = TRUE)
+  if (length(x) >= 40){
+    x <- x[1:40]
+  }
+  
+  if (length(x) < 40){
+    temp <- 40 - length(x)
+    x <- c(x, rep(0, temp))
+  }
+  mtrx[,i] <- c(x, 0)
+}
+
+## Percent in first 2 spots
+for(i in 1: ncol(mtrx)){
+  mtrx[41, i] <- round(sum(mtrx[1:2, i]) / sum(mtrx[1:40, i]), 3)
+}
+
+df <- data.frame(mtrx)
+df <- df[, order(df[41, ], df[1, ], decreasing = TRUE)]
+barplot(as.matrix(df[1:40, ]), main = "Mutations grouped by base start position", las = 2, col = c("gray8", "gray47", "gray70", "gray100"))
+# 12 for validation, 95 for combined
+abline(v = 95)
+## corresponds to 10 for validation, 79 for combined
+final.list <- c(final.list, names(df)[1:79])
+final.list <- unique(final.list)
+## Fig 3. Average allelic fraction of genes mutated at least twice
+avgs <- AverageMaf(snindels.elim.silent, final.list, "Hugo_Symbol", "tumor_f")
+names(avgs) <- final.list
+avgs <- sort(avgs, decreasing = TRUE)
+barplot(avgs, main = "Allelic Fraction of Screened Genes", las = 2)
 
 
