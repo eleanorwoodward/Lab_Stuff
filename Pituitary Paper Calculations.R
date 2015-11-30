@@ -1,8 +1,6 @@
 ## Pituitary Tumors Analysis
 
 pancan_names <- c("BLCA", "BRCA", "COAD", "GBM", "HNSC", "KIRC", "LAML", "LUAD", "LUSC", "MEN", "OV", "PIT", "READ", "UCEC")
-data = matrix(0, 3, length(pancan_names))
-colnames(data) <- pancan_names
 broad.list <- c()
 focal.list <- c()
 pit.focal.list <- c()
@@ -22,36 +20,29 @@ broad <- read.delim(paste('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi
 focal <- read.delim(paste('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/', 
                           focal.names[i], sep = ""), stringsAsFactors = FALSE)
 
-if (pancan_names[i] == "PIT"){
-  pit.focal.list <- focal$focal_disruption_from_median
-  pit.broad.list <- broad$broad_disruption_from_median
-  
-}else{
-avg_focal = mean(focal$focal_disruption_from_median)
-avg_broad = mean(broad$broad_disruption_from_median)
-ratio <- avg_focal / avg_broad
-data[1,i] <- avg_focal
-data[2, i] <- avg_broad
-data[3, i] <- ratio
-broad.list <- c(broad.list, broad$broad_disruption_from_median)
-focal.list <- c(focal.list, focal$focal_disruption_from_median)
+ratio <- focal$focal_disruption_from_median / broad$broad_disruption_from_median
+
+file.name <- paste('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/ratio/', 
+                   pancan_names[i], '.csv', sep = "")
+write.csv(ratio, file.name, row.names = FALSE)
 }
-}
-rownames(data) <- c("average focal", "average broad", "ratio")
-data
-t.test(focal.list, pit.focal.list[pit.disrupted])
-mean(focal.list)
-mean(pit.focal.list)
-barplot(data[3, ], main = "Comparison of Ratio of Focal to Broad in various tumor types")
+
+broad.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/broad/pit_disruptionbroad_per_sample.151114.txt'
+                      , stringsAsFactors = FALSE)
+focal.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/pit_disruptionfocal_per_sample.pt27.151114.txt', 
+                          , stringsAsFactors = FALSE)
+ratio.pit <- focal.pit$focal_disruption_from_median / broad.pit$broad_disruption_from_median
 
 
 ## Allelic fraction information per tumor
-setwd("C:/Users/Noah/OneDrive/Work/R/output/")
+setwd("C:/Users/Noah/OneDrive/Work/Coding/R/output/")
 x <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/Mutation-Indels/Pit20140506.final_analysis_set.maf.txt', 
                 stringsAsFactors = FALSE)
+x <- FilterMaf(x, "Silent", "Variant_Classification", FALSE)
+
 sample.list <- unique(x$Tumor_Sample_Barcode)
 for (i in 1:length(sample.list)){
-  fig.name <- sample.list[2]
+  fig.name <- sample.list[i]
     pdf(paste(fig.name,"_allelic_fractions", ".pdf", sep = ""))
     temp <- FilterMaf(x, fig.name, "Tumor_Sample_Barcode")
     genelist <- unique(temp$Hugo_Symbol)
@@ -66,5 +57,12 @@ for (i in 1:length(sample.list)){
 disrupted.maf <- FilterMaf(x, pit.disrupted.list, "Tumor_Sample_Barcode")
 
 quiet.maf <- FilterMaf(x, pit.disrupted.list, "Tumor_Sample_Barcode", FALSE)
+
+disrupted.filter <- disrupted.maf[disrupted.maf$Tumor_Sample_Barcode != "PIT504-Tumor", ]
+t.test(table(disrupted.filter$Tumor_Sample_Barcode),  table(quiet.maf$Tumor_Sample_Barcode))
+
+## Mutation Analysis
+x.recurrent <- ReccurentMaf(x, "Hugo_Symbol")
+PlotMaf(x.recurrent, "Hugo_Symbol")
 
 
