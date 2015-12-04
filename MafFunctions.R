@@ -2,10 +2,10 @@
 ## 9/17/15
 
 ## Helpful R functions for manipulating MAF output files for data analysis. 
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/ExacFilter.R")
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/ESPFilter.R")
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/PoNFilter.R")
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/CallCompare.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/ExacFilter.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/ESPFilter.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/PoNFilter.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/CallCompare.R")
 
 FilterMaf <- function(maf, list, column.name, keep = TRUE){
   # Takes a maf, and returns a maf with only those rows who have a value in given column that matches an entry in the list. 
