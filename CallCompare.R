@@ -23,15 +23,13 @@ if (sum(duplicated(up.snp)) | sum(duplicated(p.snp)) > 0){
 ## Make tumor sample names the same for comparison
 up.snp$Tumor_Sample_Barcode <- sapply(up.snp$Tumor_Sample_Barcode, PairSetFormat, 5, USE.NAMES = FALSE)
 
-## Values to run optimization over
-
-
 ## Sets empty list to hold outputs
 pairs <- c()
 cutoff <- vector()
 coding.variants <- c("Missense_Mutation", "Nonsense_Mutation", "Splice_Site", "Nonstop_Mutation", 
                      "De_Novo_Start_OutOfFrame")
 
+# Depending on which filter is selected, runs that filter on Maf for each threshold value
 for (i in 1:length(vals)){
     if (filter == "PoN"){
       up.snp <- run.pon(up.snp, vals[i])
@@ -74,6 +72,7 @@ for (i in 1:length(vals)){
     comb <- rbind(present, small.p.snp)
     idx <- duplicated(comb)
     missing <- comb[!idx, ]
+    
     GermlineRemoved <- function(called.germline, total.muts, actual.somatic, false.flagged.somatic){
       pct <- (called.germline - false.flagged.somatic) / (total.muts - actual.somatic)
       round(pct, 3) * 100
