@@ -29,8 +29,8 @@ write.csv(ratio, file.name, row.names = FALSE)
 
 broad.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/broad/pit_disruptionbroad_per_sample.151114.txt'
                       , stringsAsFactors = FALSE)
-focal.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/pit_disruptionfocal_per_sample.pt27.151114.txt', 
-                          , stringsAsFactors = FALSE)
+focal.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/pit_disruptionfocal_per_sample.pt27.151114.txt' 
+                          ,stringsAsFactors = FALSE)
 ratio.pit <- focal.pit$focal_disruption_from_median / broad.pit$broad_disruption_from_median
 
 
@@ -65,4 +65,27 @@ t.test(table(disrupted.filter$Tumor_Sample_Barcode),  table(quiet.maf$Tumor_Samp
 x.recurrent <- ReccurentMaf(x, "Hugo_Symbol")
 PlotMaf(x.recurrent, "Hugo_Symbol")
 
+## Plot relationship between mutation rate and power to detect
+power <- c()
+power.3 <- c()
+power.med <- c()
+power.med.3 <- c()
+mut.rate <- seq(.0075, .20, .01)
 
+for(i in 1:length(mut.rate)){
+power <- c(power, pbinom(2, 44, mut.rate[i], FALSE))
+power.3 <- c(power.3, pbinom(3, 44, mut.rate[i], FALSE))
+power.med <- c(power.med, pbinom(2, 34, mut.rate[i], FALSE))
+power.med.3 <- c(power.med.3, pbinom(3, 34, mut.rate[i], FALSE))
+}
+
+plot(mut.rate, power, xlab = "Mutation Rate", ylab = "Power to Detect Mutations", 
+     main = "Figure 5: Power Calculation", pch = 0)
+points(mut.rate, power.3, pch = 15)
+points(mut.rate, power.med, pch = 1)
+points(mut.rate, power.med.3, pch = 16)
+
+  
+legend("topleft", c("Power for at least 3 mutations", "Power for at least 4 mutations", 
+                    "At least 3 mutations, 10 bad samples", 
+                    "At least 4 mutations, 10 bad samples"), pch =c(0, 15, 1, 16))
