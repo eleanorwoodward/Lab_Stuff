@@ -4,7 +4,7 @@
 
 run.exac <- function(maf, af = 0){
   
-  total.exac <- read.delim('C:/Users/Noah/OneDrive/Work/R/dbs/germline_37k_split_mult_alleles.AF.INFO',
+  total.exac <- read.delim('C:/Users/Noah/OneDrive/Work/Coding/R/dbs/germline_37k_split_mult_alleles.AF.INFO',
                                       stringsAsFactors = FALSE)
     
   idx <- which(total.exac$POS %in% maf$Start_position)
