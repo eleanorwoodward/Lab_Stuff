@@ -11,7 +11,7 @@ run.exac <- function(maf, af = 0){
   exac <- total.exac[idx, ]
   
   # Goal is to annotate the maf with the germline data
-  # Loop through entire maf  
+  # Loop through entire maf
   for (i in 1:nrow(maf)){
     
    ## Prints out every 1,000 cycles

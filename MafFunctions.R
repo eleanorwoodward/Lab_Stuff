@@ -242,6 +242,9 @@ CompareMutsMaf <- function(maf, cutoff = 0, title = ""){
           las = 2, main = title )
 }
 
+## Compares different cutoffs for filtering
+
+
 FilterCutoffMaf <- function(maf1, maf2, cutoff, cut1 = "Filter 1", cut2 = "Filter2",  title = ""){
   maf1 <- PerSampleMaf(maf1, "Hugo_Symbol")
   maf1 <- ReccurentMaf(maf1, "Hugo_Symbol", cutoff)
@@ -253,6 +256,8 @@ FilterCutoffMaf <- function(maf1, maf2, cutoff, cut1 = "Filter 1", cut2 = "Filte
   barplot(data, beside = TRUE, legend.text = c(cut1, cut2),
           las = 2, main = title)
 }
+
+## Takes a folder full of Mafs, and returns one concatenated maf
 
 CombineMaf <- function(directory, file.list = list.files(directory)){
   x <- read.delim(paste(directory, file.list[1], sep = "/"), stringsAsFactors = FALSE, comment.char = "#")
@@ -268,6 +273,9 @@ PairSetFormat <- function(sample.name, cutoff = 3, replace = "M"){
   temp <- paste(replace, temp, sep = "")
   temp
 }
+
+## Takes two tables of values, makes sure all values from each table appear in the other, and orders the table
+## so that all entries are in same position. 
 
 EqualizeTable <- function(table1, table2){
   

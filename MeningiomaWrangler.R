@@ -1,7 +1,7 @@
 ## Noah Greenwald
 ## Wrangles data into correct format for subsequent analysis
 
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
 indel.variants <- c("Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins", "Splice_Site", "Start_Codon_Del", "Stop_Codon_Del")
 snp.variants <- c("De_novo_Start_OutOfFrame", "Missense_Mutation", "Nonsense_Mutation", "Nonstop_Mutation", "Splice_Site", "Start_Codon_SNP")
@@ -31,7 +31,8 @@ val.snp.1.5 <- val.snp.1.5[val.snp.1.5$pon_germline == FALSE, ]
 val.indel.no.filter <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/ValIndels.annotated", 
                                   stringsAsFactors=FALSE, comment.char = "#")
 
-val.indel.no.filter <- run.exac(val.indel.no.filter, .001)
+val.indel.no.filter <- run.exac(val.indel.no.filter, .0001)
+val.snp.no.filter <- run.exac(val.snp.no.filter, .0001)
 val.indel.no.filter <- run.esp(val.indel.no.filter)
 
 val.indel.no.filter$Tumor_Sample_Barcode <- sapply(val.indel.no.filter$Tumor_Sample_Barcode, PairSetFormat, 3, USE.NAMES = FALSE)

@@ -49,7 +49,7 @@ run.esp <- function(maf){
 # rm(total.esp, pos, change, fraction)
 ## Above pre-processing only needs to run once.
 
-esp <- read.csv("C:/Users/Noah/OneDrive/Work/R/dbs/ESP_Lite.csv", stringsAsFactors = FALSE)
+esp <- read.csv("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/ESP_Lite.csv", stringsAsFactors = FALSE)
 
 idx <- which(esp$base %in% maf$Start_position)
 esp <- esp[idx, ]
