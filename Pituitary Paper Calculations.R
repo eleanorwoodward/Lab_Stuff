@@ -73,10 +73,10 @@ power.med.3 <- c()
 mut.rate <- seq(.0075, .20, .01)
 
 for(i in 1:length(mut.rate)){
-power <- c(power, pbinom(2, 44, mut.rate[i], FALSE))
-power.3 <- c(power.3, pbinom(3, 44, mut.rate[i], FALSE))
-power.med <- c(power.med, pbinom(2, 34, mut.rate[i], FALSE))
-power.med.3 <- c(power.med.3, pbinom(3, 34, mut.rate[i], FALSE))
+power <- c(power, pbinom(2, 42, mut.rate[i], FALSE))
+power.3 <- c(power.3, pbinom(3, 42, mut.rate[i], FALSE))
+power.med <- c(power.med, pbinom(2, 32, mut.rate[i], FALSE))
+power.med.3 <- c(power.med.3, pbinom(3, 32, mut.rate[i], FALSE))
 }
 
 plot(mut.rate, power, xlab = "Mutation Rate", ylab = "Power to Detect Mutations", 
