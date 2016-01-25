@@ -80,7 +80,7 @@ power.med.3 <- c(power.med.3, pbinom(3, 32, mut.rate[i], FALSE))
 }
 
 plot(mut.rate, power, xlab = "Mutation Rate", ylab = "Power to Detect Mutations", 
-     main = "Figure 5: Power Calculation", pch = 0)
+     main = "Figure 5: Power Calculation", pch = 1)
 points(mut.rate, power.3, pch = 15)
 points(mut.rate, power.med, pch = 1)
 points(mut.rate, power.med.3, pch = 16)
