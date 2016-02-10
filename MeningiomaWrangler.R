@@ -15,8 +15,10 @@ val.snp.no.filter <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis
                            stringsAsFactors = FALSE)
 
 val.snp.no.filter$Tumor_Sample_Barcode <- sapply(val.snp.no.filter$Tumor_Sample_Barcode, PairSetFormat, 2, USE.NAMES = FALSE)
+temp1 <- FilterMaf(val.snp.no.filter, snp.variants, "Variant_Classification")
 
 val.snp.no.filter <- run.pon(val.snp.no.filter, -2.5)
+val.snp.no.filter <- run.exac(val.snp.no.filter, .0001)
 
 val.snp.all.muts <- val.snp.no.filter[val.snp.no.filter$pon_germline == FALSE, ]
 
@@ -30,9 +32,10 @@ val.snp.1.5 <- val.snp.1.5[val.snp.1.5$pon_germline == FALSE, ]
 ## Filter indels
 val.indel.no.filter <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/ValIndels.annotated", 
                                   stringsAsFactors=FALSE, comment.char = "#")
+temp2 <- FilterMaf(val.indel.no.filter, indel.variants, "Variant_Classification")
 
 val.indel.no.filter <- run.exac(val.indel.no.filter, .0001)
-val.snp.no.filter <- run.exac(val.snp.no.filter, .0001)
+
 val.indel.no.filter <- run.esp(val.indel.no.filter)
 
 val.indel.no.filter$Tumor_Sample_Barcode <- sapply(val.indel.no.filter$Tumor_Sample_Barcode, PairSetFormat, 3, USE.NAMES = FALSE)

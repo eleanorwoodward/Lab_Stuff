@@ -69,6 +69,14 @@ boxplot(paired.tbl$Freq, nonpaired.tbl$Freq, names = c("Paired Samples", "Unpair
 x <- c(nrow(paired) / length(unique(paired$Tumor_Sample_Barcode)), nrow(nonpaired) / length(unique(nonpaired$Tumor_Sample_Barcode)))
 barplot(x, names.arg = c("Paired Samples", "Unpaired Samples"), main = "Average number of mutations per sample")
 
+PlotMaf(paired, "Tumor_Sample_Barcode", lower.margin = 1.5, title = "Mutations per Sample")
+abline(h = nrow(paired) / length(unique(paired$Tumor_Sample_Barcode)))
+
+PlotMaf(nonpaired, "Tumor_Sample_Barcode", lower.margin = 1.5, "Mutations per Sample")
+abline(h = nrow(nonpaired) / length(unique(nonpaired$Tumor_Sample_Barcode)))
+
+
+
 ## Number of paired samples vs unpaired samples with mutations
 length(unique(paired$Tumor_Sample_Barcode))
 length(unique(nonpaired$Tumor_Sample_Barcode))
@@ -82,7 +90,7 @@ length(unique(paired$Hugo_Symbol))
 length(unique(nonpaired$Hugo_Symbol))
 
 ## Fig 1. Barplot of mutations per sample
-PlotMaf(snindels, "Tumor_Sample_Barcode", 2, "Fig 1. SNP + Indel Mutations Per Sample")
+PlotMaf(snindels, "Tumor_Sample_Barcode", 2, "Coding Mutations")
 abline(h = nrow(snindels) / length(unique(snindels$Tumor_Sample_Barcode)))
 
 length(unique(snindels$Tumor_Sample_Barcode))
@@ -93,9 +101,11 @@ sum(snindels$Tumor_Sample_Barcode == "M231-tumor")
 
 ## Mutations per gene
 snin.unique <- PerSampleMaf(snindels, "Hugo_Symbol")
-snindels5 <- ReccurentMaf(snin.unique, "Hugo_Symbol", 4)
-snindels10 <- ReccurentMaf(snin.unique, "Hugo_Symbol", 9)
-PlotMaf(snindels5, "Hugo_Symbol", 2, "SNP + Indel Mutations in Genes with at least 5 hits")
+snindels3 <- ReccurentMaf(snin.unique, "Hugo_Symbol", 2)
+snindels6 <- ReccurentMaf(snin.unique, "Hugo_Symbol", 5)
+PlotMaf(snindels3, "Hugo_Symbol", 2, "SNP + Indel Mutations in Genes with at least 3 hits")
+PlotMaf(snindels6, "Hugo_Symbol", 2, "SNP + Indel Mutations in Genes with at least 6 hits")
+
 
 # Shows difference in mutation calls for differnt filter levels
 FilterCutoffMaf(snindels, snindels.15, 4, "PoN -2.5 Cutoff", "PoN -1.5 Cutoff", "Effect of PoN filtering on highly mutated genes")
