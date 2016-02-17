@@ -209,18 +209,19 @@ RatioMaf <- function (maf, column.name, list1, list2){
         " were in the first subset, and ", val2, " were in the second subset.")
 }
 
-PerSampleMaf <- function(maf, column.name, list = maf[[column.name]]){
+PerSampleMaf <- function(maf, column.name, identifier.column = "Tumor_Sample_Barcode", list = maf[[column.name]]){
   ## Takes a maf, and returns a filtered maf that limits occurence to one per sample
   
   ## Args:
   #       maf: a maf file
-  #       column.name: name of the column for filtering
+  #       column.name: name of the column to be checked for uniqueness
+  #       identifier.column: name of the column with sample IDs            
   #       list: values that will be kept in filtered maf. Default is all values in column
   
   # Returns: a maf with only those rows which contain an element from list in selected column, 
   # limited to once per sample. 
   filtered <- FilterMaf(maf, list, column.name, TRUE)
-  cols <- c("Tumor_Sample_Barcode", column.name)
+  cols <- c(identifier.column, column.name)
   dups <- filtered[, cols]
   idx <- duplicated(dups)
   filtered <- filtered[!idx, ]
