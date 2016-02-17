@@ -1,17 +1,18 @@
 ## Pituitary Tumors Analysis
 
+
+## Iniatialize launch sequence
 pancan_names <- c("BLCA", "BRCA", "COAD", "GBM", "HNSC", "KIRC", "LAML", "LUAD", "LUSC", "MEN", "OV", "PIT", "READ", "UCEC")
 broad.list <- c()
 focal.list <- c()
 pit.focal.list <- c()
 pit.broad.list <- c()
 pit.disrupted <- c(1, 4, 9, 16, 22, 23, 26, 28, 32, 34, 37, 42)
-pit.disrupted.list <- c("PIT001-Tumor", "PIT007-Tumor", "PIT013-Tumor", "PIT1002-Tumor","PIT1009-Tumor","PIT1010-Tumor","PIT1013-Tumor","PIT1015-Tumor",
-                        "PIT1022-Tumor","PIT202-Tumor", "PIT311-Tumor", "PIT504-Tumor")
+pit.disrupted.list <- c("PIT001.Tumor", "PIT007.Tumor", "PIT013.Tumor", "PIT1002.Tumor","PIT1009.Tumor","PIT1010.Tumor","PIT1013.Tumor","PIT1015.Tumor",
+                        "PIT1022.Tumor","PIT202.Tumor", "PIT311.Tumor", "PIT504.Tumor")
 
+## Loop through pancan data set, calculation ratio of focal to broad disruption across samples
 for (i in 1:length(pancan_names)){
-  
- 
 broad.names <- list.files('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/broad/')
 focal.names <- list.files('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/')
   
@@ -27,11 +28,39 @@ file.name <- paste('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genom
 write.csv(ratio, file.name, row.names = FALSE)
 }
 
+## Loop through pancan data, calculate mean focal disruption for each tumor type
+list <- c()
+for (i in 1:length(pancan_names)){
+    focal.names <- list.files('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/')
+    
+    focal <- read.delim(paste('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/', 
+                              focal.names[i], sep = ""), stringsAsFactors = FALSE)
+    
+    list <- c(list, mean(focal$focal_disruption_from_median))
+}
+
+list
+
+## Calculate ratio for pit samples
+
 broad.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/broad/pit_disruptionbroad_per_sample.151114.txt'
                       , stringsAsFactors = FALSE)
 focal.pit <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary (Linda Bi)/genomedisruption/output_files_ng_edited/focal/pit_disruptionfocal_per_sample.pt27.151114.txt' 
                           ,stringsAsFactors = FALSE)
 ratio.pit <- focal.pit$focal_disruption_from_median / broad.pit$broad_disruption_from_median
+
+
+# Broad alterations in non-disrupted subset of tumors
+broad.pit.quiet <- FilterMaf(broad.pit, pit.disrupted.list, "sample_id", F)
+
+focal.pit.disrupted <- FilterMaf(focal.pit, pit.disrupted.list, "sample_id", T)
+
+## Focal alterations in disrupted subtype
+mean(focal.pit.disrupted$focal_disruption_from_median) / mean(list)
+
+
+
+mean(broad.pit.quiet$broad_disruption_from_mean)
 
 
 ## Allelic fraction information per tumor
