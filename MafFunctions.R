@@ -304,3 +304,17 @@ EqualizeTable <- function(table1, table2){
   table3
 }
 
+## Takes a data frame or matrix, and removes rows with problemtic entries
+
+## Args:
+##      input.data: the data to be input
+##      naughty.list: additional parameters to exclude
+
+CleanYourRoom <- function(input.data, naughty.list = c()){
+    for(i in 1:ncol(input.data)){
+        bad.boys <- input.data[, i] %in% c("", "-", "N/A", "na", NA, naughty.list)
+        input.data <- input.data[!bad.boys, ]
+    }
+    return (input.data)
+}
+
