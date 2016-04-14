@@ -7,6 +7,34 @@ indel.variants <- c("Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Fr
 snp.variants <- c("De_novo_Start_OutOfFrame", "Missense_Mutation", "Nonsense_Mutation", "Nonstop_Mutation", "Splice_Site", "Start_Codon_SNP")
 
 
+## For MutationsIndels
+
+discovery.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/Discovery/")
+discovery.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/Indels/")
+
+discovery.snps <- NULL
+discovery.indel <- NULL
+for (i in 1:length(list.files(discovery.indel.folder))){
+    temp <- read.csv(paste(snowman.folder.rear, list.files(snowman.folder.rear)[i], sep = "/"),
+                     stringsAsFactors = F)
+    temp[, 28] <-  strsplit(list.files(snowman.folder.rear)[i], ".csv")[[1]]
+    colnames(temp)[28] <- "Sample"
+    temp <- temp[, -29]
+    snowman.rearrangements <- rbind(snowman.rearrangements, temp)    
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 ## Generate differently filtered MAFs for analysis
 val.snp.original <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/Val829.annotated", 
                                 stringsAsFactors=FALSE, comment.char = "#")
