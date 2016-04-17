@@ -2,27 +2,49 @@
 ## Wrangles data into correct format for subsequent analysis
 
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
-
+## for all analysis
 indel.variants <- c("Frame_Shift_Del", "Frame_Shift_Ins", "In_Frame_Del", "In_Frame_Ins", "Splice_Site", "Start_Codon_Del", "Stop_Codon_Del")
 snp.variants <- c("De_novo_Start_OutOfFrame", "Missense_Mutation", "Nonsense_Mutation", "Nonstop_Mutation", "Splice_Site", "Start_Codon_SNP")
 
+unique.analysis <- read.delim("C:/Users/Noah/Onedrive/Work/Meningioma/Firehose/hg_unique.txt", stringsAsFactors = F)
+hg.unique <- unique.analysis[, 1]
 
 ## For MutationsIndels
 
 discovery.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/Discovery/")
-discovery.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/Indels/")
+discovery.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/Indels")
 
-discovery.snps <- NULL
+
 discovery.indel <- NULL
 for (i in 1:length(list.files(discovery.indel.folder))){
-    temp <- read.csv(paste(snowman.folder.rear, list.files(snowman.folder.rear)[i], sep = "/"),
-                     stringsAsFactors = F)
-    temp[, 28] <-  strsplit(list.files(snowman.folder.rear)[i], ".csv")[[1]]
-    colnames(temp)[28] <- "Sample"
-    temp <- temp[, -29]
-    snowman.rearrangements <- rbind(snowman.rearrangements, temp)    
+    temp <- read.delim(paste(discovery.indel.folder, list.files(discovery.indel.folder)[i], sep = "/"),
+                     stringsAsFactors = F, comment.char = "#")
+    if (nrow(temp) > 0){
+        temp[, 16] <-  strsplit(list.files(discovery.indel.folder)[i], ".indel")[[1]][1]
+        discovery.indel <- rbind(discovery.indel, temp)
+    }
 }
 
+
+discovery.snps <- read.delim(paste(discovery.snps.folder, list.files(discovery.snps.folder)[61], sep = "/"),
+                             stringsAsFactors = F, comment.char = "#")
+discovery.snps[, 16] <- "MEN0120-P1"
+discovery.snps <- discovery.snps[, c(1:90, 266,283,290)]
+for (i in 1:length(list.files(discovery.snps.folder))){
+    temp <- read.delim(paste(discovery.snps.folder, list.files(discovery.snps.folder)[i], sep = "/"),
+                      stringsAsFactors = F, comment.char = "#")
+    if (ncol(temp) == 272){
+        temp[, 16] <-  strsplit(list.files(discovery.snps.folder)[i], ".snp")[[1]][1]
+        temp[, 273:290] <- NA
+        colnames(temp)[c(283, 290)] <- c("oxoGCut", "i_ffpe_cut")
+        discovery.snps <- rbind(discovery.snps, temp[, c(1:90, 266,283,290)])
+    }else if (ncol(temp) == 290){
+        temp[, 16] <-  strsplit(list.files(discovery.snps.folder)[i], ".ffpe")[[1]][1]
+        discovery.snps <- rbind(discovery.snps, temp[, c(1:90, 266,283,290)])
+    }else{
+        print("hello")
+    }
+}    
 
 
 
