@@ -24,19 +24,39 @@ for (i in 1:length(list.files(snowman.folder.rear))){
                      stringsAsFactors = F)
     temp[, 28] <-  strsplit(list.files(snowman.folder.rear)[i], ".csv")[[1]]
     colnames(temp)[28] <- "Sample"
-    temp <- temp[, -29]
+    colnames(temp)[29] <- "vcf.info"
     snowman.rearrangements <- rbind(snowman.rearrangements, temp)    
 }
 
 ## Keep rearrangements only with likely somatic score
 
 snowman.rearrangements <- snowman.rearrangements[snowman.rearrangements$somatic_lod > 4, ]
+snowman.rearrangements[, c(39, 40)] <- NA
 
+
+## Filters out low AF variants
+
+for (i in 1:nrow(snowman.rearrangements)){
+    vals <- strsplit(snowman.rearrangements[i, 29], ":")
+    if (length(vals[[1]]) < 3){
+        snowman.rearrangements[i, 39:40] <- NA
+    }else{
+        
+    
+        variants <- as.numeric(vals[[1]][2])
+        total <- as.numeric(vals[[1]][3])
+        snowman.rearrangements[i, 39:40] <- c(variants, total)
+    }
+}
+
+## Keeps only those that pass QC filter
+snowman.rearrangements <- snowman.rearrangements[snowman.rearrangements[, 39] > 2 & 
+                                                     (snowman.rearrangements[,39] / snowman.rearrangements[, 40] > .05 ), ]
 
 ##Keep only relevant columns
-rearrangements <- snowman.rearrangements[, c(28, 1,2,29,31,33,35, 4,5,30, 32,34,36)]
-rearrangements[, 14:15] <- "Intergenic"
-colnames(rearrangements)[14:15] <- c("gene1.or.cancer", "gene2.or.cancer")
+rearrangements <- snowman.rearrangements[, c(28, 1,2,31,35,37, 4,5,32, 33,34,36,38, 29)]
+rearrangements[, 15:16] <- "Intergenic"
+colnames(rearrangements)[15:16] <- c("gene1.or.cancer", "gene2.or.cancer")
 
 ## Creats columns for genes or cancer genes within 100kb
 for (i in 1:nrow(rearrangements)){
@@ -56,42 +76,42 @@ for (i in 1:nrow(rearrangements)){
     }
 }
 
-
+rearrangements[, 17] <- NA
 ## Create cancer-related column for easy viewing
 for (i in 1:nrow(rearrangements)){
     temp1 <- rearrangements$cancer_gene1[i]
     temp2 <- rearrangements$cancer_gene2[i]
     if (temp1 == "none"){
         if (temp2 == "none"){
-            rearrangements[i, 16] <- "none"
+            rearrangements[i, 17] <- "none"
         }else{
-            rearrangements[i, 16] <- temp2
+            rearrangements[i, 17] <- temp2
         }
     }else{
         if (temp2 == "none"){
-            rearrangements[i, 16] <- temp1
+            rearrangements[i, 17] <- temp1
         }else{
-            rearrangements[i, 16] <- paste(temp1, temp2, sep = "_")
+            rearrangements[i, 17] <- paste(temp1, temp2, sep = "_")
         }
     }
 }
-colnames(rearrangements)[16] <- "cancer.related"
+colnames(rearrangements)[17] <- "cancer.related"
 
 
-## gets all genes
-genes1 <- rearrangements[,c(1,2,3,14)]
-genes2 <- rearrangements[,c(1,8,9,15)]
+## gets all genes, using gene or cancer gene 100k for gene category if intergenic
+genes1 <- rearrangements[,c(1,2,3,15)]
+genes2 <- rearrangements[,c(1,7,8,16)]
 colnames(genes2)[2:4] <- colnames(genes1)[2:4]
 genes.all <- rbind(genes1, genes2)
 colnames(genes.all) <- c("sample", "chr", "pos", "gene")
 
-## Plot rearrangments per gene
-genes.all.4 <- ReccurentMaf(genes.all,"gene", 3)
-genes.all.4 <- FilterMaf(genes.all.4, "Intergenic", "gene", F)
-tbl <- table(genes.all.4$gene)
+## Plot rearrangments per gene (not sample-unique)
+genes.all.3 <- ReccurentMaf(genes.all,"gene", 2)
+genes.all.3 <- FilterMaf(genes.all.3, "Intergenic", "gene", F)
+tbl <- table(genes.all.3$gene)
 tbl <- tbl[order(tbl, decreasing = T)]
 par(mar = c(8, 4,4,2))
-barplot(tbl, las = 2, main = "# of rearrangments per gene, minimum 4")
+barplot(tbl, las = 2, main = "# of rearrangments per gene, minimum 3")
 
 ## Plot unique rearrangments per gene
 genes.all.unique <- PerSampleMaf(genes.all, "gene", identifier.column =  "sample")
@@ -118,33 +138,19 @@ write.csv(genes.all.unique.2, "C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/P
 
 
 ## Gets all recurrent rearrangments between pairs of genes. Replaces intergenic regions with nearby cancer genes
-matches <- NULL
-for (i in 1:nrow(gene.rearrangements)){
-    if (gene.rearrangements$gene1[i] == "Intergenic"){
-        if (gene.rearrangements$cancer_genes100kb_1[i] != "none"){
-            gene.rearrangements$gene1[i] <- gene.rearrangements$cancer_genes100kb_1[i]
-        }
-    }
-    if (gene.rearrangements$gene2[i] == "Intergenic"){
-        if (gene.rearrangements$cancer_genes100kb_2[i] != "none"){
-            gene.rearrangements$gene2[i] <- gene.rearrangements$cancer_genes100kb_2[i]
-        }
-    }
-}
-
 gene.rearrangements <- FilterMaf(rearrangements, "Intergenic", "gene1", F)
 gene.rearrangements <- FilterMaf(gene.rearrangements, "Intergenic", "gene2", F)
-
+matches <- NULL
 for (i in 1:nrow(gene.rearrangements)){
     # Gets first gene-gene pair
-    current.gene <- gene.rearrangements$gene1[i]
+    current.gene <- gene.rearrangements$gene1.or.cancer[i]
     gene.chr <- gene.rearrangements$chr1[i]
     gene.pos <- gene.rearrangements$pos1[i]
-    current.target <- gene.rearrangements$gene2[i]
+    current.target <- gene.rearrangements$gene2.or.cancer[i]
     target.chr <- gene.rearrangements$chr2[i]
     target.pos <- gene.rearrangements$pos2[i]
-    youve.got.cancer <- gene.rearrangements$cancer.related[i]
-    friends <- FilterMaf(gene.rearrangements[-i,], current.gene, "gene1")
+    #youve.got.cancer <- gene.rearrangements$cancer.related[i]
+    friends <- FilterMaf(gene.rearrangements[-i,], current.gene, "gene1.or.cancer")
     
     #checks to see if any other instances of same starter gene have same target
     if (nrow(friends) > 0){
@@ -152,7 +158,7 @@ for (i in 1:nrow(gene.rearrangements)){
         close.friends <- friends[idx,]
         if (nrow(close.friends) > 0){
             temp <- c(rownames(gene.rearrangements)[i], current.gene, gene.chr, gene.pos, current.target, 
-                      target.chr, target.pos, gene.rearrangements$Sample[i], youve.got.cancer)
+                      target.chr, target.pos, gene.rearrangements$Sample[i])
             matches <- c(matches, temp)
             
         }
@@ -160,9 +166,9 @@ for (i in 1:nrow(gene.rearrangements)){
     } 
 }
 
-matches.table <-matrix(matches, length(matches)/9, 9, byrow = T)
+matches.table <-matrix(matches, length(matches)/8, 8, byrow = T)
 pairwise.matches <- data.frame(matches.table, stringsAsFactors = FALSE)
-colnames(pairwise.matches) <- c("Original Index", "Gene1", "Chr1", "Pos1", "Gene2", "Chr2", "pos2", "sample", "cancer")
+colnames(pairwise.matches) <- c("Original Index", "Gene1", "Chr1", "Pos1", "Gene2", "Chr2", "pos2", "sample")
 x <- pairwise.matches
 
 ## gets rid of duplicates from same sample
@@ -172,7 +178,7 @@ for (i in 1:nrow(x)){
     current.target <- x[, 5][i]
     current.individual <- x[, 8][i]
     
-    # Finds all samples with same start
+    # Finds all samples with same starting gene
     friends <- FilterMaf(x[-i,], current.gene, 2)
     
     if (nrow(friends) > 0){
@@ -186,7 +192,7 @@ for (i in 1:nrow(x)){
             ## If only 1 total hit, check if same as original
             if (nrow(close.friends) == 1){
                 if (close.friends[, 8] == current.individual){
-                    x[as.numeric(rownames(close.friends)[1]), 10] <- 1
+                    x[as.numeric(rownames(close.friends)[1]), 9] <- 1
                 }
             
             ## check if at least 2 unique hits        
@@ -200,7 +206,7 @@ for (i in 1:nrow(x)){
             #Otherwise, must be redundant hits    
             }else{
                 for (j in 1:nrow(close.friends)){
-                    x[as.numeric(rownames(close.friends)[j]), 10] <- 1
+                    x[as.numeric(rownames(close.friends)[j]), 9] <- 1
                 }
                 
             }
@@ -212,8 +218,8 @@ for (i in 1:nrow(x)){
 } 
 
 
-pretty <- x[is.na(x[[10]]), ]
-pretty <- pretty[, c(2:9)]
+pretty <- x[is.na(x[[9]]), ]
+pretty <- pretty[, c(2:8)]
 pretty <- pretty[order(pretty$Gene1), ]
 write.csv(pretty, file = "C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/Plots/pretty.csv", row.names = F)
 
