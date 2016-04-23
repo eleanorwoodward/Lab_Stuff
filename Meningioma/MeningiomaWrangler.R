@@ -11,7 +11,7 @@ hg.unique <- unique.analysis[, 1]
 
 ## For MutationsIndels
 
-discovery.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/Discovery/")
+discovery.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/Discovery")
 discovery.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/Indels")
 
 
@@ -25,6 +25,7 @@ for (i in 1:length(list.files(discovery.indel.folder))){
     }
 }
 
+discovery.coding.indels <- FilterMaf(discovery.indel, indel.variants, "Variant_Classification")
 
 discovery.snps <- read.delim(paste(discovery.snps.folder, list.files(discovery.snps.folder)[61], sep = "/"),
                              stringsAsFactors = F, comment.char = "#")
@@ -46,13 +47,88 @@ for (i in 1:length(list.files(discovery.snps.folder))){
     }
 }    
 
+discovery.coding.snps <- FilterMaf(discovery.snps, snp.variants, "Variant_Classification")
+
+
+ph.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/LG")
+ph.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/LG/Indels")
+
+ph.indel <- NULL
+for (i in 1:length(list.files(ph.indel.folder))){
+    temp <- read.delim(paste(ph.indel.folder, list.files(ph.indel.folder)[i], sep = "/"),
+                       stringsAsFactors = F, comment.char = "#")
+    if (nrow(temp) > 0){
+        temp[, 16] <-  strsplit(list.files(ph.indel.folder)[i], ".indel")[[1]][1]
+        ph.indel <- rbind(ph.indel, temp)
+    }
+}
+
+ph.coding.indels <- FilterMaf(ph.indel, indel.variants, "Variant_Classification")
+
+ph.snps <- read.delim(paste(ph.snps.folder, list.files(ph.snps.folder)[63], sep = "/"),
+                             stringsAsFactors = F, comment.char = "#")
+ph.snps[, 16] <- "MENex006-pair"
+ph.snps <- ph.snps[, c(1:90, 266,283,290)]
+for (i in 1:length(list.files(ph.snps.folder))){
+    temp <- read.delim(paste(ph.snps.folder, list.files(ph.snps.folder)[i], sep = "/"),
+                       stringsAsFactors = F, comment.char = "#")
+    if (ncol(temp) == 272){
+        temp[, 16] <-  strsplit(list.files(ph.snps.folder)[i], ".snp")[[1]][1]
+        temp[, 273:290] <- NA
+        colnames(temp)[c(283, 290)] <- c("oxoGCut", "i_ffpe_cut")
+        ph.snps <- rbind(ph.snps, temp[, c(1:90, 266,283,290)])
+    }else if (ncol(temp) == 290){
+        temp[, 16] <-  strsplit(list.files(ph.snps.folder)[i], ".ffpe")[[1]][1]
+        ph.snps <- rbind(ph.snps, temp[, c(1:90, 266,283,290)])
+    }else{
+        print("hello")
+    }
+}sdafsdf
+
+ph.coding.snps <- FilterMaf(ph.snps, snp.variants, "Variant_Classification")
 
 
 
 
+## Load rearrangement data sets
+
+## read in high grade
+discovery.rearrangements.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/rearrangements/")
+discovery.rearrangements <- NULL
+for (i in 1:length(list.files(discovery.rearrangements.folder))){
+    temp <- read.csv(paste(discovery.rearrangements.folder, list.files(discovery.rearrangements.folder)[i], sep = "/"),
+                     stringsAsFactors = F)
+    temp[, 28] <-  strsplit(list.files(discovery.rearrangements.folder)[i], ".csv")[[1]]
+    colnames(temp)[28] <- "Sample"
+    colnames(temp)[29] <- "vcf.info"
+    discovery.rearrangements <- rbind(discovery.rearrangements, temp)    
+}
+
+## Keep rearrangements only with likely somatic score
+
+discovery.rearrangements <- discovery.rearrangements[discovery.rearrangements$somatic_lod > 4, ]
+discovery.rearrangements[, c(39, 40)] <- NA
 
 
 
+## read in low grade
+ph.rearrangements.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/LG/rearrangements/")
+ph.rearrangements <- NULL
+for (i in 1:length(list.files(ph.rearrangements.folder))){
+    temp <- read.csv(paste(ph.rearrangements.folder, list.files(ph.rearrangements.folder)[i], sep = "/"),
+                     stringsAsFactors = F)
+    temp[, 28] <-  strsplit(list.files(ph.rearrangements.folder)[i], ".csv")[[1]]
+    colnames(temp)[28] <- "Sample"
+    colnames(temp)[29] <- "vcf.info"
+    ph.rearrangements <- rbind(ph.rearrangements, temp)    
+}
+
+## Keep rearrangements only with likely somatic score
+
+ph.rearrangements <- ph.rearrangements[ph.rearrangements$somatic_lod > 4, ]
+ph.rearrangements[, c(39, 40)] <- NA
+
+ph.rearrangements[ph.rearrangements$gene1 == "NF2" | ph.rearrangements$gene2 == "NF2", 27:36]
 
 
 
