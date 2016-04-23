@@ -23,6 +23,7 @@ write.csv(Master, "C:/Users/Noah/Syncplicity Folders/Radiomics-NG LB only/R_oupu
 correlations.data <- read.csv("C:/Users/Noah/Syncplicity Folders/Radiomics-NG LB only/Master_Sheet_CSV.csv",
                                 stringsAsFactors = F)
 correlations.data <- correlations.data[1:222, ]
+correlations.data[, 178] <- as.numeric(correlations.data[, 178])
 correlations.data[, 183] <- as.numeric(correlations.data[, 183])
 correlations.data[, 184] <- as.numeric(correlations.data[, 184])
 correlations.data[, 185] <- as.numeric(correlations.data[, 185])
@@ -486,13 +487,23 @@ table(correlations.data[, imaging.features[1]])
 
 ## vignette("introduction", package = "dplyr")
 
-correlations.data %>% select(grade, MUS)  %>% group_by(grade) %>% summarise(avgs = mean(MUS, na.rm = T))
-
 correlations.data %>% select(Loclass2, MUS)  %>% group_by(Loclass2) %>% summarise(avgs = mean(MUS, na.rm = T))
 
+table(correlations.data$molgrade)
 
+by.grade <- correlations.data %>%  group_by(molgrade)
 
+by.class <- correlations.data %>%  group_by(Loclass2)
 
+table(correlations.data$molgrade, correlations.data$female)
+
+# Total number of mutations
+summarise(by.grade, muts = sum(c(NF2.MUTATION, KLF4.MUTATION, AKT.MUTATION, SMO.MUTATION, TRAF7.MUTATION, PIKCA.MUTATION, PTEN.MUTATION, tertp.1), na.rm = T))
+
+summarise(by.grade, muts = sum(c(NF2.MUTATION, KLF4.MUTATION, AKT.MUTATION, SMO.MUTATION, TRAF7.MUTATION, PIKCA.MUTATION, PTEN.MUTATION), na.rm = T))
+
+summarise(by.grade, avgs = mean(MUS))
+mean(by.grade$MUS, na.rm = T)
 
 
 
