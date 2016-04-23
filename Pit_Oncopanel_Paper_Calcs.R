@@ -1,65 +1,114 @@
 ## Cals for Oncopanel Analysis
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
-## Removes trailing whitespace
-whiteout <- function(string){
-  x <- strsplit(string, "  ")
-  x <- x[[1]]
-  x <- strsplit(x, " ")
-  x <- x[[1]]
-  x
-}
-
 ## Gets CSV data, formats and cleans it
-onc.data <- read.csv('C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/Oncopanel_Data_For_R.csv', stringsAsFactors = FALSE, comment.char = "#", 
-                   header = TRUE)
-onc.data <- onc.data[1:286, ]
-colnames(onc.data)[c(6, 7, 8, 9, 10, 16)] <- c("Subtype", "Recurrent", "Atypical", "MIB1_Index", "Dural_Invasion", "Gene")
-onc.data$Gene <- sapply(data$Gene, whiteout, USE.NAMES = FALSE)
+onc.data <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/R_input.txt', stringsAsFactors = FALSE, comment.char = "", 
+                   header = T, strip.white = T)
+onc.data <- onc.data[1:322, ]
 
-## Predefined clusters here
-cluster.big <-c("TP53", "FANCA", "PRKDC", "ATM", "BRCA1", "ABL1", "BRCA2")
-cluster.small <- c("NOTCH2", "CREBBP", "GLI3", "TCF3")
-cluster.arid <- c("ARID1B", "ARID1A")
-cluster4 <- c("RHPN2", "PIK3C2B")
-cluster5 <- c("MEN1", "MLL2")
-combo <- list(cluster.big, cluster.small, cluster.arid)
-names(combo) <- c("Cluster.big", "cluser.small", "cluster.arid")
-subtypes <- c("Null", "FSH", "Prolactin", "HGH", "ACTH")
+by.gene <- NULL
 
-fishers.helper <- function(data, group.column, group1, outcome.column, outcome1, group.names, outcome.names){
-data1 <- FilterMaf(data, group1, group.column)  
-data2 <- FilterMaf(data, group1, group.column, FALSE)  
+## loops through databse, extracts gene level information
 
-data1.outcome <- FilterMaf(data1, outcome1, outcome.column)    
-data2.outcome <- FilterMaf(data2, outcome1, outcome.column)    
-vals <- c(nrow(data1.outcome), nrow(data1) - nrow(data1.outcome), nrow(data2.outcome), nrow(data2) - nrow(data2.outcome))
-mtrx <- matrix(vals, 2, 2)
-colnames(mtrx) <- group.names
-rownames(mtrx) <- outcome.names
-mtrx
+cases <- onc.data
+
+for (i in 1:nrow(cases)){
+    if (cases$Mutation...DNA.Variants[i] == "" | cases$Mutation...DNA.Variants[i] == "no results"){
+        # do nothing
+    }else{
+        lst <- strsplit(cases$Mutation...DNA.Variants[i], ";")[[1]]
+        for (j in 1:length(lst)){
+            split1 <- strsplit(lst[j], "c.")[[1]]
+            name = trimws(split1[1])
+            split2 <- strsplit(split1[2], " ")
+            aa <- split2[[1]][1]
+            protien <- split2[[1]][2]
+            remainder <- strsplit(split1[2], ",")[[1]][2]
+            temp <- cases[i, c(1:3, 23, 33,35:38)]
+            temp1 <- data.frame(name, aa, protien, remainder, stringsAsFactors = F)
+            temp <- cbind(temp, temp1)
+            by.gene <- rbind(by.gene, temp)
+        }
+    }
 }
 
-## Loops through gene sets, and checks if enrichment for recurrence, atypicallity, or invasion
-for(i in 1:length(combo)){
-  temp <- fishers.helper(onc.data, "Gene", combo[[i]], "Recurrent", "0", c("Cluster", "Population"), c("De_Novo", "Recurrent"))
-  print(temp)
-  output <- fisher.test(temp)
-  print(output)
+colnames(by.gene)[10:13] <- c("gene", "amino.acid", "protein", "rest")
+
+for (i in 1:nrow(by.gene)){
+    count = sum(by.gene[,10 ] == by.gene[i, 10])
+    by.gene[i, 14] <- count
+}
+write.table(by.gene, "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/by_gene.txt", row.names = F, quote = F, sep = "\t")
+
+
+## Analysis
+
+# Check to see if disrupted or chr loss correlates with subtype
+onc.data <- onc.data[onc.data$Oncopanel. == 1, ]
+
+adenomas <- onc.data[onc.data$Pathology == "Pituitary Adenoma", ]
+
+# correlation of 1, 11, and disruption with subtype
+yvals <- c("Chr.1.Loss", "Chr.11.loss", "disruption")
+mtrx1 <- matrix(NA, 1, 3)
+for (i in 1:3){
+    mini <- CleanYourRoom(adenomas[, c("pathology.simple", yvals[i])])
+    tbl <- table(mini[, 1], mini[, 2])
+    math.party <- fisher.test(tbl)
+    mtrx1[1, i] <- signif(math.party$p.value, 2)
+}
+mtrx1
+
+
+## Chr loss freq
+
+up.data <- adenomas[adenomas$Up != "", ]
+down.data <- adenomas[adenomas$Down != "", ]
+up.chr <- up.data$Up
+down.chr <- down.data$Down
+down.list <- strsplit(down.chr, ",")
+up.list <- strsplit(up.chr, ",")
+
+up <- c()
+for (i in 1:length(up.list)){
+    up <- c(up, up.list[[i]])
 }
 
-## Loops through gene sets, and checks if enrichment for subtypes
-for(i in 1:length(combo)){
-  temp <- fishers.helper(onc.data, "Gene", combo[[i]], "Subtype", subtypes[4], c(names(combo)[i], "Population"), c(subtypes[4], "Population"))
-  print(temp)
-  output <- fisher.test(temp)
-  print(output)
+down <- c()
+for (i in 1:length(down.list)){
+    down <- c(down, down.list[[i]])
 }
 
-## Loops through subtypes, and checks if enrichment for recurrence, atypicallity, or invasion
-for(i in 1:length(subtypes)){
-  temp <- fishers.helper(onc.data, "Subtype", subtypes[[i]], "Recurrent", "0", c(subtypes[i], "Population"), c("De_Novo", "Recurrent"))
-  print(temp)
-  output <- fisher.test(temp)
-  print(output)
-}
+up <- as.numeric(up)
+down <- as.numeric(down)
+
+down <- down[!is.na(down)]
+
+
+hist(up, breaks = 1:22)
+hist(down, breaks = 1:23)
+
+## cohort statistics
+func.adenomas <- by.gene[by.gene$pathology.simple == "Functional", ]
+
+nonfunc.adenomas <- by.gene[by.gene$pathology.simple == "Null", ]
+
+mutations.func <- table(func.adenomas$BWH_MRN)
+mutations.nonfunc <- table(nonfunc.adenomas$BWH_MRN)
+
+t.test(mutations.nonfunc, mutations.func)
+
+## Gene level analysis
+
+PlotMaf(by.gene, "gene", 9, title = "Genes Mutated in at least 5 patients")
+
+nrow(by.gene) / 106
+
+length(unique(by.gene$gene))
+
+## Hotspot mutations
+hot <- ReccurentMaf(by.gene, "amino.acid")
+
+
+
+
