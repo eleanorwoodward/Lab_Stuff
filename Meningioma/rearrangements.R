@@ -16,42 +16,33 @@ for (i in 1:24){
 }
 cents <- data.frame(mtrx)
 
-## read in snowman data
-snowman.folder.rear <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/rearrangements/")
-snowman.rearrangements <- NULL
-for (i in 1:length(list.files(snowman.folder.rear))){
-    temp <- read.csv(paste(snowman.folder.rear, list.files(snowman.folder.rear)[i], sep = "/"),
-                     stringsAsFactors = F)
-    temp[, 28] <-  strsplit(list.files(snowman.folder.rear)[i], ".csv")[[1]]
-    colnames(temp)[28] <- "Sample"
-    colnames(temp)[29] <- "vcf.info"
-    snowman.rearrangements <- rbind(snowman.rearrangements, temp)    
-}
-
-## Keep rearrangements only with likely somatic score
-
-snowman.rearrangements <- snowman.rearrangements[snowman.rearrangements$somatic_lod > 4, ]
-snowman.rearrangements[, c(39, 40)] <- NA
-
-
 ## Filters out low AF variants
+## make combined list
 
-for (i in 1:nrow(snowman.rearrangements)){
-    vals <- strsplit(snowman.rearrangements[i, 29], ":")
+total.rearrangements <- rbind(ph.rearrangements, discovery.rearrangements)
+
+for (i in 1:nrow(total.rearrangements)){
+    vals <- strsplit(total.rearrangements[i, 29], ":")
     if (length(vals[[1]]) < 3){
-        snowman.rearrangements[i, 39:40] <- NA
+        total.rearrangements[i, 39:40] <- NA
     }else{
         
     
         variants <- as.numeric(vals[[1]][2])
         total <- as.numeric(vals[[1]][3])
-        snowman.rearrangements[i, 39:40] <- c(variants, total)
+        total.rearrangements[i, 39:40] <- c(variants, total)
     }
 }
 
 ## Keeps only those that pass QC filter
-snowman.rearrangements <- snowman.rearrangements[snowman.rearrangements[, 39] > 2 & 
-                                                     (snowman.rearrangements[,39] / snowman.rearrangements[, 40] > .05 ), ]
+## If span is greater than 1000 bases, allows for 5% allelic fraction and 2 reads
+## if span is less than 1000 bases, requires 10% af and at least 5 reads
+good.rearrangements <- total.rearrangements[total.rearrangements$span > 1000 & total.rearrangements[, 39] > 1 & 
+                                                     (total.rearrangements[,39] / total.rearrangements[, 40] > .05 ) 
+                                             | total.rearrangements[, 39] > 5 & (total.rearrangements[,39] / total.rearrangements[, 40] > .10 ) , ]
+good.rearrangements[, 41] <- seq(880)
+colnames(good.rearrangements)[39:41] <- c("number.reads", "allelic.fraction", "unique.identifier")
+write.csv(total.rearrangements, "C:/Users/Noah/OneDrive/Work/temp/all_passed_snowman_calls.csv", row.names = F, quote = F)
 
 ##Keep only relevant columns
 rearrangements <- snowman.rearrangements[, c(28, 1,2,31,35,37, 4,5,32, 33,34,36,38, 29)]
