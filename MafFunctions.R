@@ -44,36 +44,42 @@ FilterMaf <- function(maf, list, column.name, keep = TRUE){
   }
 }
 
-PlotMaf <- function(maf, column.name, lower.margin = 1, title = ""){
-  ## Takes a Maf file and produces a bar plot 
-  
-  # Args: 
-  #     Maf: a maf file in array format. 
-  #     column.name: a string with the name of the column that the barplot will be produced from. 
-  #     lower.margin: a multiplier that adjusts the marign at the bottom of the graph. 
-  #     title: optional, gives the graph a title
-  
-  ## Error checking
-  if (is.null(maf[[column.name]])){
-    stop("Invalid column name")
-  }
-  
-  data <- sort(maf[, column.name])
-  tbl <- table(data)
-  par(mar= c(5*lower.margin,4,4,2) + .1)
-  size = (length(unique(data)))
-  barplot(tbl, las = 2, main = title)
-  
-#   if (size > 60){
-#       x = ceiling(size / 60)
-#       for (i in 1:x){
-#         end
-#         barplot(tbl, las = 2, main = c(title," ", i, " of ", x))
-#       }
-#   }
-#   else{
-#   barplot(tbl, las = 2, main = title)
-#   }
+PlotMaf <- function(maf, column.name, percent = 100, lower.margin = 1, title = ""){
+    ## Takes a Maf file and produces a bar plot 
+    
+    # Args: 
+    #     Maf: a maf file in array format. 
+    #     column.name: a string with the name of the column that the barplot will be produced from. 
+    #     lower.margin: a multiplier that adjusts the marign at the bottom of the graph. 
+    #     title: optional, gives the graph a title
+    #     percent: allows for plotting of only x% of hits ranked by frequency
+    
+    ## Error checking
+    if (is.null(maf[[column.name]])){
+        stop("Invalid column name")
+    }
+    
+    if (percent <= 0 | percent > 100){
+        stop("Learn how to calculate a percent")
+    }
+    data <- maf[, column.name]
+    tbl <- table(data)
+    tbl <- sort(tbl, decreasing = T)
+    tbl <- tbl[1:floor(length(tbl)*percent/100)]
+    par(mar= c(5*lower.margin,4,4,2) + .1)
+    size = (length(unique(data)))
+    barplot(tbl, las = 2, main = title)
+    
+    #   if (size > 60){
+    #       x = ceiling(size / 60)
+    #       for (i in 1:x){
+    #         end
+    #         barplot(tbl, las = 2, main = c(title," ", i, " of ", x))
+    #       }
+    #   }
+    #   else{
+    #   barplot(tbl, las = 2, main = title)
+    #   }
 }
 
 AverageMaf <- function(maf, list, list.column, int.column){
