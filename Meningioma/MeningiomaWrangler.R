@@ -10,7 +10,6 @@ unique.analysis <- read.delim("C:/Users/Noah/Onedrive/Work/Meningioma/Firehose/h
 hg.unique <- unique.analysis[, 1]
 
 ## For MutationsIndels
-
 discovery.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/Discovery")
 discovery.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Discovery/Indels")
 
@@ -50,6 +49,19 @@ for (i in 1:length(list.files(discovery.snps.folder))){
 discovery.coding.snps <- FilterMaf(discovery.snps, snp.variants, "Variant_Classification")
 
 
+mini.disc.snps <- discovery.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position", 
+                                            "COSMIC_total_alterations_in_gene")]
+mini.disc.indels <- discovery.coding.indels[, c("Hugo_Symbol", "i_read_depth", "i_allelic_depth", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position",
+                                                "COSMIC_total_alterations_in_gene")]
+mini.disc.indels[, 2] <- mini.disc.indels[, 3] / mini.disc.indels[, 2]
+mini.disc.indels <- mini.disc.indels[, -3]
+colnames(mini.disc.indels)[2] <- "i_tumor_f"
+
+disc.snindels <- rbind(mini.disc.indels, mini.disc.snps)
+
+disc.snindels <- FilterMaf(disc.snindels, hg.unique, "Tumor_Sample_Barcode")
+
+
 ph.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/LG")
 ph.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/LG/Indels")
 
@@ -83,12 +95,56 @@ for (i in 1:length(list.files(ph.snps.folder))){
     }else{
         print("hello")
     }
-}sdafsdf
+}
 
 ph.coding.snps <- FilterMaf(ph.snps, snp.variants, "Variant_Classification")
 
 
+mini.ph.snps <- ph.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
+mini.ph.indels <- ph.coding.indels[, c("Hugo_Symbol", "i_read_depth", "i_allelic_depth", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
+mini.ph.indels[, 2] <- mini.ph.indels[, 3] / mini.ph.indels[, 2]
+mini.ph.indels <- mini.ph.indels[, -3]
+colnames(mini.ph.indels)[2] <- "i_tumor_f"
 
+ph.snindels <- rbind(mini.ph.indels, mini.ph.snps)
+
+
+total.snindels <- rbind(disc.snindels, ph.snindels)
+
+strelka <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Strelka/total_unique.indel.strelka.maf.annotated", stringsAsFactors = F, 
+                     comment.char = "#")
+strelka.coding <- FilterMaf(strelka, indel.variants, "Variant_Classification")
+snowman.coding <- rbind(discovery.coding.indels, ph.coding.indels)
+snowman.coding <- FilterMaf(snowman.coding, c(total.list, "MEN_PH_LG_24-pair", "MEN_PH_LG_41-pair", "MEN_PH_LG_44-pair", "MEN_PH_LG_59-pair",
+                                              "MEN_PH_LG_70-pair", "MENex001-pair","MENex004-pair","MENex005-pair"), "Tumor_Sample_Barcode")
+snowman.coding <- snowman.coding[snowman.coding$i_allelic_depth > 0, ]
+
+mini.strelka.coding <- strelka.coding[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "Start_position", "read_depth")]
+mini.snowman.coding <- snowman.coding[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "Start_position", "i_allelic_depth", "i_read_depth")]
+mini.snowman.coding[,5] <- mini.snowman.coding$i_allelic_depth / mini.snowman.coding$i_read_depth
+mini.strelka.coding[, 6] <- "Strelka"
+mini.snowman.coding[, 6] <- "Snowman"
+
+
+indel.indels.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator"
+indel.indels <- NULL
+for (i in 1:length(list.files(indel.indels.folder))){
+    temp <- read.delim(paste(indel.indels.folder, list.files(indel.indels.folder)[i], sep = "/"),
+                       stringsAsFactors = F, comment.char = "#")
+    if (nrow(temp) > 0){
+        temp[, 16] <-  strsplit(list.files(indel.indels.folder)[i], ".indel")[[1]][1]
+        indel.indels <- rbind(indel.indels, temp)
+    }
+}
+indels.coding <- FilterMaf(indel.indels, indel.variants, "Variant_Classification")
+mini.indels.coding <- indels.coding[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "Start_position", "i_tumor_f")]
+mini.indels.coding[,6] <- "Indelocator"
+colnames(mini.snowman.coding) <- colnames(mini.indels.coding)
+colnames(mini.strelka.coding) <- colnames(mini.snowman.coding)
+combined.mini.indels <- rbind(mini.snowman.coding, mini.strelka.coding, mini.indels.coding)
+combined.mini.indels <- PerSampleMaf(combined.mini.indels,"Hugo_Symbol", "Tumor_Sample_Barcode")
+## combine indel callers
+coding.indels <- rbind(mini.strelka.coding, mini.indels.coding, mini.snowman.coding)
 
 ## Load rearrangement data sets
 
@@ -131,6 +187,12 @@ ph.rearrangements[, c(39, 40)] <- NA
 ph.rearrangements[ph.rearrangements$gene1 == "NF2" | ph.rearrangements$gene2 == "NF2", 27:36]
 
 
+## Import Copy Number Data, order same as master table
+gistic.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/total.gistic.414/broad_values_by_arm (3).txt", stringsAsFactors = F)
+gistic.calls <- cbind(gistic.calls[, -(2:12)], gistic.calls[, 2:12])
+arms <- gistic.calls[, 1]
+gistic.calls <- t(gistic.calls[, -1])
+colnames(gistic.calls) <- arms
 
 
 ## Generate differently filtered MAFs for analysis
