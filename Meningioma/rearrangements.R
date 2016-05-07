@@ -33,19 +33,21 @@ for (i in 1:nrow(total.rearrangements)){
         total.rearrangements[i, 39:40] <- c(variants, total)
     }
 }
-
+total.rearrangements[,41] <- seq(nrow(total.rearrangements))
 ## Keeps only those that pass QC filter
 ## If span is greater than 1000 bases, allows for 5% allelic fraction and 2 reads
 ## if span is less than 1000 bases, requires 10% af and at least 5 reads
-good.rearrangements <- total.rearrangements[total.rearrangements$span > 1000 & total.rearrangements[, 39] > 1 & 
+good.rearrangements <- total.rearrangements[(total.rearrangements$span > 1000 | total.rearrangements$span == -1) & total.rearrangements[, 39] > 1 & 
                                                      (total.rearrangements[,39] / total.rearrangements[, 40] > .05 ) 
                                              | total.rearrangements[, 39] > 5 & (total.rearrangements[,39] / total.rearrangements[, 40] > .10 ) , ]
-good.rearrangements[, 41] <- seq(880)
+good.rearrangements <- FilterMaf(good.rearrangements, c(total.list, "MEN_PH_LG_41-pair"), "Sample")
+good.rearrangements[, 41] <- seq(nrow(good.rearrangements))
 colnames(good.rearrangements)[39:41] <- c("number.reads", "allelic.fraction", "unique.identifier")
-write.csv(total.rearrangements, "C:/Users/Noah/OneDrive/Work/temp/all_passed_snowman_calls.csv", row.names = F, quote = F)
+write.csv(good.rearrangements, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/all_passed_snowman_calls.csv"
+          , row.names = F, quote = F)
 
 ##Keep only relevant columns
-rearrangements <- snowman.rearrangements[, c(28, 1,2,31,35,37, 4,5,32, 33,34,36,38, 29)]
+rearrangements <- good.rearrangements[, c(28, 1,2,31,35,37, 4,5,32, 33,34,36,38, 29)]
 rearrangements[, 15:16] <- "Intergenic"
 colnames(rearrangements)[15:16] <- c("gene1.or.cancer", "gene2.or.cancer")
 
@@ -90,42 +92,25 @@ colnames(rearrangements)[17] <- "cancer.related"
 
 
 ## gets all genes, using gene or cancer gene 100k for gene category if intergenic
-genes1 <- rearrangements[,c(1,2,3,15)]
-genes2 <- rearrangements[,c(1,7,8,16)]
-colnames(genes2)[2:4] <- colnames(genes1)[2:4]
+genes1 <- rearrangements[,c(1,2,3,15, 7,8,16)]
+genes2 <- rearrangements[,c(1,7,8,16,2,3,15)]
+colnames(genes2) <- c("sample", "chr", "pos", "gene", "partner.chr", "partner.pos", "partner.gene")
+colnames(genes1) <- c("sample", "chr", "pos", "gene", "partner.chr", "partner.pos", "partner.gene")
 genes.all <- rbind(genes1, genes2)
-colnames(genes.all) <- c("sample", "chr", "pos", "gene")
-
-## Plot rearrangments per gene (not sample-unique)
-genes.all.3 <- ReccurentMaf(genes.all,"gene", 2)
-genes.all.3 <- FilterMaf(genes.all.3, "Intergenic", "gene", F)
-tbl <- table(genes.all.3$gene)
-tbl <- tbl[order(tbl, decreasing = T)]
-par(mar = c(8, 4,4,2))
-barplot(tbl, las = 2, main = "# of rearrangments per gene, minimum 3")
-
-## Plot unique rearrangments per gene
-genes.all.unique <- PerSampleMaf(genes.all, "gene", identifier.column =  "sample")
-genes.all.unique <- FilterMaf(genes.all.unique, "Intergenic", "gene", F)
-genes.all.unique.2 <- ReccurentMaf(genes.all.unique, "gene")
-tbl <- table(genes.all.unique.2$gene)
-tbl <- tbl[order(tbl, decreasing = T)]
-par(mar = c(8, 4,4,2))
-barplot(tbl, las = 2, main = "# of unique rearrangments per gene, min 2")
 
 ## Plot recurrence-unique rearrangements per gene
 genes.modified <- genes.all
-genes.modified$sample <- sapply(genes.all$sample, function(x) substr(x,1,7), USE.NAMES = F)
-genes.all.unique <- PerSampleMaf(genes.modified, "gene", identifier.column =  "sample")
-genes.all.unique <- FilterMaf(genes.all.unique, "Intergenic", "gene", F)
-genes.all.unique.2 <- ReccurentMaf(genes.all.unique, "gene")
-tbl <- table(genes.all.unique.2$gene)
-tbl <- tbl[order(tbl, decreasing = T)]
-par(mar = c(8, 4,4,2))
-barplot(tbl, las = 2, main = "# of unique rearrangments per gene, min 2")
+genes.modified <- FilterMaf(genes.modified, total.list, "sample")
+genes.modified <- FilterMaf(genes.modified, "Intergenic", "gene", F)
+genes.modified <- PerSampleMaf(genes.modified, "gene", "sample")
+genes.modified.2 <- ReccurentMaf(genes.modified, "gene")
+genes.modified.2 <- genes.modified.2[order(genes.modified.2$sample), ]
+PlotMaf(genes.modified.2, "gene")
 
+genes.modified.2 <- genes.modified.2[order(genes.modified.2$sample), ]
+death.list <- c()
 ##Investigate multiple hits
-write.csv(genes.all.unique.2, "C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/Plots/rearrangement_targets.csv", row.names = F)
+write.csv(genes.modified.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/targetted_genes.csv", row.names = F)
 
 
 ## Gets all recurrent rearrangments between pairs of genes. Replaces intergenic regions with nearby cancer genes
