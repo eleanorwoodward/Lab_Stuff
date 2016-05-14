@@ -12,7 +12,9 @@ unique(ph.coding.snps[ph.coding.snps$Hugo_Symbol == "NF2", ]$Tumor_Sample_Barcod
 
 unique(genes.all[genes.all$gene == "NF2", ]$sample)
 
+## Read in master table, add column for total mutations
 master.table <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/mastertable_for_R.txt", stringsAsFactors = F)
+
 
 ## Create pair name lists for calculations
 hg.list <- master.table[master.table$Analsysis.Set. == 1, ]$Pair.Name
@@ -22,13 +24,13 @@ total.nf2.mutant.list <- master.table[(master.table$Analsysis.Set. == 1 | master
                                           master.table$NF2.snp.indel == 1, ]$Pair.Name
 total.nf2.wt.list <- master.table[(master.table$Analsysis.Set. == 1 | master.table$Cohort == "PH") & 
                                           master.table$NF2.snp.indel == 0, ]$Pair.Name
-ph.list <- master.table[master.table$Cohort == "PH", ]$Pair.Name
-ph.table <- master.table[master.table$Cohort == "PH", ]
+ph.list <- master.table[master.table$Cohort == "PH",]$Pair.Name
+ph.table <- master.table[master.table$Cohort == "PH" | (master.table$Cohort == "onc" & master.table$Grade == "I"), ]
 
 ## order master table for comut
 
 ## Hg only
-hg.table <- master.table[master.table$Analsysis.Set. == 1, ]
+hg.table <- master.table[master.table$Analsysis.Set. == 1 | (master.table$Cohort == "onc" & master.table$Grade != "I"), ]
 hg.table <- hg.table[order(-hg.table$NF2.snp.indel, hg.table$Grade), ]
 
 ## for heatmap generation
@@ -74,22 +76,30 @@ write.csv(comut, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC
 
 
 ## Mutation incidence comparison
-hg.unique.snps <- FilterMaf(discovery.coding.snps, hg.list, "Tumor_Sample_Barcode")
-x <- table(hg.coding.snps$Tumor_Sample_Barcode)
+hg.unique.snps <- FilterMaf(discovery.coding.snps, c(hg.list, "MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
+hg.unique.snps <- hg.unique.snps[hg.unique.snps$Tumor_Sample_Barcode > .1, ]
+x <- table(hg.unique.snps$Tumor_Sample_Barcode)
 dimnames(x) <- NULL
 x <- x[-13]
 
-y <- table(lg.coding.snps$Tumor_Sample_Barcode)
+
+temp <- ph.coding.snps[ph.coding.snps$i_tumor_f > .1, ]
+y <- table(temp$Tumor_Sample_Barcode)
 dimnames(y) <- NULL
-y <- y[-(1:39)]
+y <- y[-(1:34)]
 t.test(x, y)
+
+## generate vals for prism plots
+master.table[master.table$Analsysis.Set. == 1 & master.table$Grade == "II" & master.table$Subtype != "Rhabdoid", ]$nonsynoymous.mutations
+
+master.table[master.table$Analsysis.Set. == 1 & master.table$NF2.snp.indel.rearrangement == 0, ]$nonsynoymous.mutations
+master.table[master.table$Cohort == "PH" & master.table$NF2.snp.indel.rearrangement == 1, ]$nonsynoymous.mutations
+
 
 hg.coding.snps <- FilterMaf(discovery.snps, c("Silent", snp.variants),"Variant_Classification")
 hg.coding.snps <- FilterMaf(hg.coding.snps, hg.list, "Tumor_Sample_Barcode")
 
 lg.coding.snps <- FilterMaf(ph.snps, c("Silent", snp.variants), "Variant_Classification")
-
-
 
 PlotMaf(disc.snindels, "Hugo_Symbol", percent = 5)
 
@@ -99,7 +109,7 @@ fisher.test(table(total.table$NF2.snp.indel, total.table$chr22.loss, dnn = c("NF
 
 # check if statistically signficant difference in cohorts between concurrence of nf2/chr22
 counts <- NULL
-counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement == 1 & ph.table$chr22.loss == 1))
+counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement != 0 & ph.table$chr22.loss == 1))
 counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 1 & hg.table$chr22.loss == 1))
 counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement == 0 & ph.table$chr22.loss == 1))
 counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 0 & hg.table$chr22.loss == 1))
@@ -107,6 +117,15 @@ counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 0 & hg.table$chr
 fisher.test(matrix(counts,2,2 ))
 
 fisher.test(table(total.table$Chr1.loss, total.table$chr22.loss))
+
+## for gene set enrichment analysis
+total.snindels.2 <- total.snindels[total.snindels$i_tumor_f > .1, ]
+total.snindels.2 <- ReccurentMaf(total.snindels.2, "Hugo_Symbol")
+write.csv(total.snindels.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutations/genes_mutated_at_least_twice.csv", row.names = F)
+
+disc.snindels.2 <- disc.snindels[disc.snindels$i_tumor_f > .1, ]
+disc.snindels.2 <- ReccurentMaf(disc.snindels.2, "Hugo_Symbol")
+write.csv(disc.snindels.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutations/genes_mutated_at_least_twice_hg.csv", row.names = F)
 
 tbl <- (table(total.snindels$Hugo_Symbol))
 tbl <- sort(tbl)
@@ -155,15 +174,3 @@ counts <- c(counts, sum(total.table$Grade != "I" & total.table$Subtype != "Rhabd
 rhab.mtrx <- matrix(counts, nrow = 2)
 fisher.test(rhab.mtrx)
 
-## creates list of mutated genes in discovery
-gene.list <- disc.snindels[disc.snindels$i_tumor_f > .049, ]
-gene.list <- PerSampleMaf(gene.list, "Hugo_Symbol", "Tumor_Sample_Barcode")
-gene.list <- ReccurentMaf(gene.list, "Hugo_Symbol")
-temp <- sort(table(gene.list$Hugo_Symbol))
-gene.table <- dimnames(temp)[[1]]
-gene.table <- cbind(gene.table, temp)
-gene.table <- as.data.frame(gene.table)
-gene.table <- gene.table[order(gene.table[,1]), ]
-onc <- gene.list[!duplicated(gene.list$Hugo_Symbol), ]
-gene.table <- cbind(gene.table, onc[, 6])
-colnames(gene.table)[2:3] <- c("number.times.mutated", "number.times.mutated.cosmic")
