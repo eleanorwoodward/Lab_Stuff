@@ -100,32 +100,7 @@ for (i in 1:length(list.files(ph.snps.folder))){
 ph.coding.snps <- FilterMaf(ph.snps, snp.variants, "Variant_Classification")
 
 
-mini.ph.snps <- ph.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
-mini.ph.indels <- ph.coding.indels[, c("Hugo_Symbol", "i_read_depth", "i_allelic_depth", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
-mini.ph.indels[, 2] <- mini.ph.indels[, 3] / mini.ph.indels[, 2]
-mini.ph.indels <- mini.ph.indels[, -3]
-colnames(mini.ph.indels)[2] <- "i_tumor_f"
-
-ph.snindels <- rbind(mini.ph.indels, mini.ph.snps)
-
-
-total.snindels <- rbind(disc.snindels, ph.snindels)
-
-strelka <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Strelka/total_unique.indel.strelka.maf.annotated", stringsAsFactors = F, 
-                     comment.char = "#")
-strelka.coding <- FilterMaf(strelka, indel.variants, "Variant_Classification")
-snowman.coding <- rbind(discovery.coding.indels, ph.coding.indels)
-snowman.coding <- FilterMaf(snowman.coding, c(total.list, "MEN_PH_LG_24-pair", "MEN_PH_LG_41-pair", "MEN_PH_LG_44-pair", "MEN_PH_LG_59-pair",
-                                              "MEN_PH_LG_70-pair", "MENex001-pair","MENex004-pair","MENex005-pair"), "Tumor_Sample_Barcode")
-snowman.coding <- snowman.coding[snowman.coding$i_allelic_depth > 0, ]
-
-mini.strelka.coding <- strelka.coding[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "Start_position", "read_depth")]
-mini.snowman.coding <- snowman.coding[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "Start_position", "i_allelic_depth", "i_read_depth")]
-mini.snowman.coding[,5] <- mini.snowman.coding$i_allelic_depth / mini.snowman.coding$i_read_depth
-mini.strelka.coding[, 6] <- "Strelka"
-mini.snowman.coding[, 6] <- "Snowman"
-
-
+## reads in indelocator data
 indel.indels.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator"
 indel.indels <- NULL
 for (i in 1:length(list.files(indel.indels.folder))){
@@ -137,14 +112,26 @@ for (i in 1:length(list.files(indel.indels.folder))){
     }
 }
 indels.coding <- FilterMaf(indel.indels, indel.variants, "Variant_Classification")
-mini.indels.coding <- indels.coding[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "Start_position", "i_tumor_f")]
-mini.indels.coding[,6] <- "Indelocator"
-colnames(mini.snowman.coding) <- colnames(mini.indels.coding)
-colnames(mini.strelka.coding) <- colnames(mini.snowman.coding)
-combined.mini.indels <- rbind(mini.snowman.coding, mini.strelka.coding, mini.indels.coding)
-combined.mini.indels <- PerSampleMaf(combined.mini.indels,"Hugo_Symbol", "Tumor_Sample_Barcode")
-## combine indel callers
-coding.indels <- rbind(mini.strelka.coding, mini.indels.coding, mini.snowman.coding)
+
+
+## create all low grade mutations
+mini.ph.snps <- ph.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
+mini.ph.indels <- ph.coding.indels[, c("Hugo_Symbol", "i_read_depth", "i_allelic_depth", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
+mini.ph.indels[, 2] <- mini.ph.indels[, 3] / mini.ph.indels[, 2]
+mini.ph.indels <- mini.ph.indels[, -3]
+colnames(mini.ph.indels)[2] <- "i_tumor_f"
+
+ph.snindels <- rbind(mini.ph.indels, mini.ph.snps)
+total.snindels <- rbind(disc.snindels, ph.snindels)
+
+total.coding.snps <- rbind(mini.ph.snps, mini.disc.snps[, -6])
+
+## create table for genelist
+mini.indels.coding <- indels.coding[, c("Hugo_Symbol" , "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position", "COSMIC_total_alterations_in_gene")]
+combined.indels <- rbind(mini.indels.coding, mini.disc.indels)
+combined.indels <- PerSampleMaf(combined.indels, "Hugo_Symbol", "Tumor_Sample_Barcode")
+
+genelist.generator <- rbind(mini.disc.snps, mini.disc.indels,mini.indels.coding)
 
 ## Load rearrangement data sets
 
@@ -193,6 +180,49 @@ gistic.calls <- cbind(gistic.calls[, -(2:12)], gistic.calls[, 2:12])
 arms <- gistic.calls[, 1]
 gistic.calls <- t(gistic.calls[, -1])
 colnames(gistic.calls) <- arms
+
+
+## Bare minimum validation processing
+
+validation.snps <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/ContEstHigh.annotated",
+                              stringsAsFactors = FALSE)
+
+validation.coding.snps <- FilterMaf(validation.snps, snp.variants, "Variant_Classification")
+
+validation.filtered.coding.snps <- run.pon(validation.coding.snps, -1.5)
+validation.filtered.coding.snps <- run.exac(validation.filtered.coding.snps, .0001)
+
+validation.filtered.coding.snps <- validation.filtered.coding.snps[validation.filtered.coding.snps$pon_germline == FALSE &
+                                                                       validation.filtered.coding.snps$germline == FALSE, ]
+
+validation.indels <- read.delim("C:/Users/Noah/OneDrive/Work/Meningioma/Analysis/ValIndels.annotated", 
+                                 stringsAsFactors=FALSE, comment.char = "#")
+
+validation.coding.indels <- FilterMaf(validation.indels, indel.variants, "Variant_Classification")
+
+validation.filtered.coding.indels <- run.exac(validation.coding.indels, .0001)
+validation.filtered.coding.indels <- validation.filtered.coding.indels[validation.filtered.coding.indels$germline == F, ]
+
+
+## combine validation mutations
+mini.val.snps <- validation.filtered.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
+mini.val.indels <- validation.filtered.coding.indels[, c("Hugo_Symbol", "tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
+colnames(mini.val.indels)[2] <- "i_tumor_f"
+val.snindels <- rbind(mini.val.snps, mini.val.indels)
+
+
+## Extension cohort
+
+
+
+for (i in 1:nrow(cnv)){
+    cur <- cnv$Sample[[i]]
+    temp <- strsplit(cur, "-")[[1]][1]
+    temp <- formatC(temp, width = 3, format = d, flag = 0)
+    temp <- paste("MG-", temp, sep = "")
+    cnv$Sample[i] <- temp
+}
+cnv
 
 
 ## Generate differently filtered MAFs for analysis
