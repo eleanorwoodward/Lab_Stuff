@@ -100,7 +100,9 @@ t.test(mutations.nonfunc, mutations.func)
 
 ## Gene level analysis
 
-PlotMaf(by.gene, "gene", 9, title = "Genes Mutated in at least 5 patients")
+PlotMaf(by.gene, "gene", 30, title = "Genes Mutated in at least 5 patients")
+
+by.gene.adenomas <- FilterMaf(by.gene, c("Functional", "Null"), "pathology.simple")
 
 nrow(by.gene) / 106
 
