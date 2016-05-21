@@ -2,7 +2,7 @@
 
 ## Noah Greenwald and PK Agarwalla
 ## Checks MAF file against ESP database of known germline mutations
-run.esp <- function(maf){
+run.esp <- function(maf, af = 0){
 
 # print("Reading in ESP Database. How about a snack break?")
 # total.esp <-  read.table("C:/Users/Noah/OneDrive/Work/R/dbs/ESPdb.txt", 
@@ -64,7 +64,7 @@ for (i in 1:nrow(maf)){
   }
   
   ## Get all matches at current position
-  match.idx <- which((esp$chrom == maf$Chromosome[i]) & (esp$base == maf$Start_position[i]))
+  match.idx <- which((esp$chrom == maf$Chromosome[i]) & (esp$base == maf$Start_position[i]) & esp$af > af)
   
   ## Deal with SNPs first   
   if (maf$Variant_Type[i] == "SNP"){
