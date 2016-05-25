@@ -4,6 +4,7 @@
 ## Psuedo code
 
 for (i in 1:nrow(events.matrix)){
+    ## r track layer to import bed files
     
     ## They first check if rearrangment location is covered by transposable element
     ## would best way to do this be with one of the tracks in GISTIC?
@@ -22,7 +23,7 @@ for (i in 1:nrow(events.matrix)){
         events.matrix[i]$rearrangement.classification <- "NA"
     
     ## They next check if deletion breakpoints have insertion at the same location. This is just your insertion category
-    }else if (events.matrix[i]$multiple.breakpoints == T){
+    }else if (events.matrix[i]insertion == T){
         
         ## If deletion breakpoint is > 10 bp vs < 10 bp, diferent calls
         if (events.matrix[i]$breakpoint.length > 10){

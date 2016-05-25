@@ -18,21 +18,54 @@ master.table <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda 
 
 ## GSEA
 akt1.pathway.members <- c("FOXO4", "PDPK1", "FOXO1", "CASP9", "NR4A1", "AKT1",  "GSK3B" , "CDKN1B", "AKT1S1", "GSK3A" ,"MAPKAP1" , "AKT3",
-                          "MLST8", "CDKN1A" ,"MDM2", "CHUK" , "TSC2" ,"MTOR","CREB1", "RICTOR" , "FOXO3", 	"AKT2" ,"BAD", "RPS6KB2")
+                          "MLST8", "CDKN1A" ,"MDM2", "CHUK" , "TSC2" ,"MTOR","CREB1", "RICTOR" , "FOXO3", 	"AKT2" ,"BAD", "RPS6KB2", "RICTOR")
 
 swi.snf.members <- c("ARID1A", "ARID1B", "SMARCB1", "SMARCA2", "SMARCA4", "SMARCE1", "ARID2", "BRD7", "PBRM1")
 
 hedgehog.members <- c("SHH", "GLI2", "GLI3", "KIF7", "STK36", "ADRBK1", "SAP18", "IHH", "PTCH1", 
                       "GLI1", "ARNTL", "DHH", "SUFU", "SMO", "SIN3A", "PTCH2")
 
-bwh.snindels <- rbind(total.snindels, val.snindels)
+bwh.snindels <- rbind(total.snindels, ccgd.snindels)
 bwh.snindels <- bwh.snindels[bwh.snindels$i_tumor_f > .09, ]
+bwh.paired.sample.list <- master.table[master.table$Paired.normal == 1 & (master.table$Analsysis.Set. == 1 | master.table$Cohort %in% c("ccgd.lg", "PH", "ccgd.hg", "ccgd.tbd")), ]$Pair.Name
 bwh.sample.list <- master.table[master.table$Analsysis.Set. == 1 | master.table$Cohort %in% c("ccgd.lg", "PH", "ccgd.hg", "ccgd.tbd"), ]$Pair.Name
 bwh.sample.list <- bwh.sample.list[!is.na(bwh.sample.list)]
 bwh.snindels <- FilterMaf(bwh.snindels, bwh.sample.list, "Tumor_Sample_Barcode")
 bwh.snindels <- PerSampleMaf(bwh.snindels, "Hugo_Symbol")
 bwh.snindels <- ReccurentMaf(bwh.snindels, "Hugo_Symbol")
-write.csv(bwh.snindels, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bw")
+bwh.snindels.min3 <- ReccurentMaf(bwh.snindels, "Hugo_Symbol", 2)
+bwh.snindels.min5 <- ReccurentMaf(bwh.snindels, "Hugo_Symbol", 4)
+write.csv(bwh.snindels, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bwh.normals.atleast2.csv")
+write.csv(bwh.snindels.min3, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bwh.atleast3.csv")
+write.csv(bwh.snindels.min5, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bwh.atleast5.csv")
+
+bwh.table <- master.table[master.table$Pair.Name %in% bwh.sample.list, ]
+bwh.table <- bwh.table[order(-as.numeric(bwh.table$Medium.Grade), bwh.table$chr22.loss, bwh.table$NF2.snp.indel.rearrangement, 
+                             bwh.table$TRAF7, bwh.table$KLF4, bwh.table$AKT1, bwh.table$SMO,  decreasing = T), ]
+
+
+
+bwh.table <- cbind(bwh.table, 0)
+colnames(bwh.table)[69:72] <- c("mTOR", "hedgehog", "Cell.cycle", "Chromatin")
+
+mTOR <- c("AKT1", "TSC2", "PIK3CA")
+hedgehog <- c("CTNNB1", "SUFU", "SMO")
+cell.cycle <- c("CDKN2C", "ANAPC2", "CDC27", "TP53", "CHEK2")
+Chromatin <- c("KMT2D", "ARID1A", "SMARCA2", "ARID1B", "SMARCB1", "KMT2C", "PRDM9", "ARID2", "KMT2A")
+
+## assign value to missing info
+for (i in 1:length(Chromatin)){
+    bwh.table[bwh.table$Pair.Name %in% bwh.snindels.min3[bwh.snindels.min3$Hugo_Symbol == Chromatin[i],]$Tumor_Sample_Barcode, 72] <- Chromatin[i]
+}
+
+bwh.table <- bwh.table[order(bwh.table$Medium.Grade, -bwh.table$NF2.snp.indel.rearrangement, 
+                             bwh.table$mTOR == "0", bwh.table$hedgehog == "0", bwh.table$Cell.cycle == "0", bwh.table$Chromatin == "0"), ]
+
+
+write.csv(bwh.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/BWH.Comut/bhw.min3_pathway_v2.csv")
+
+## check overlap between genes and NF2
+bwh.snindels[bwh.snindels$Tumor_Sample_Barcode %in% bwh.snindels[bwh.snindels$Hugo_Symbol == "RICTOR", ]$Tumor_Sample_Barcode, ]
 
 ## for gene set enrichment analysis
 total.snindels.2 <- total.snindels[total.snindels$i_tumor_f > .1, ]
@@ -147,6 +180,8 @@ fisher.test(table(massive.table[massive.table$chr22.loss == T,]$NF2.snp.indel.re
 ## investigate suspicious samples
 
 fishy <- massive.table[massive.table$chr22.loss == F & massive.table$NF2.snp.indel.rearrangement == T, 1:10]
+fishy <- massive.table[massive.table$TKAS == 1 & massive.table$NF2.snp.indel.rearrangement == T, 1:10]
+
 
 sum(massive.table$Simple.Grade == "II" & (massive.table$NF2.snp.indel.rearrangement == T | massive.table$chr22.loss == T))
 sum(massive.table$Simple.Grade == "II" & massive.table$TKAS == 1)

@@ -2,10 +2,6 @@
 
 ## compute probability of seeing given number of muts based on priors of discovery rate
 
-drop.list <- c("M1130-Tumor", "M1560-Tumor", "M46-Tumor")
-
-## M460 > M46
-
 disc.count <- 3
 disc.size <- 37
 val.count <-11
@@ -15,9 +11,8 @@ prob <- 1 - pbinom(val.count - 1, val.size, disc.count / disc.size)
 
 
 
-## figures out which validation genes to get rid of
+## figures out which validation genes to get rid of. 
 gene.list <- genelist.generator[genelist.generator$i_tumor_f > .094, ]
-val.snindels <- val.snindels[val.snindels$i_tumor_f > .09, ]
 
 
 validation.list <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutations/validation_list.txt", stringsAsFactors = F)
@@ -34,14 +29,12 @@ for (i in 1:nrow(gene.list)){
 
 gene.list <- PerSampleMaf(gene.list, "Hugo_Symbol", "Tumor_Sample_Barcode")
 gene.list.2 <- ReccurentMaf(gene.list, "Hugo_Symbol")
-val.snindels <- PerSampleMaf(val.snindels, "Hugo_Symbol")
-val.snindels.2 <- ReccurentMaf(val.snindels, "Hugo_Symbol")
 
 validation.list <- validation.list[order(validation.list[,1]), ]
 combined <- validation.list
 combined <- cbind(combined, combined$Gene %in% meningioma.list[,1], combined$Gene %in% schwan.list[,1], 
                   combined$Gene %in% gene.list$Hugo_Symbol, combined$Gene %in% gene.list.2$Hugo_Symbol, combined$Gene %in% val.snindels$Hugo_Symbol, 
-                  combined$Gene %in% val.snindels.2$Hugo_Symbol)
+                  combined$Gene %in% val.snindels2$Hugo_Symbol)
 colnames(combined) <- c("Gene", "Notes", "In.Meningioma.List", "In.Schwan.List", "Mutated.In.Disc", "Mutated.2.In.Discovery", 
                         "Mutated.in.val", "Mutated.2.in.val")
 
@@ -54,5 +47,13 @@ colnames(combined)[9] <- "drop"
  
 write.csv(combined, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutations/decision.time.csv", row.names = F)
 
+write.csv(val.snindels2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/validation.mutated.2.csv")
 
 
+
+sort(val.snindels[val.snindels$Hugo_Symbol == "NF2", ]$Tumor_Sample_Barcode)
+val.snindels[val.snindels$Hugo_Symbol %in% gsea.validation.pi3k, ]
+
+val.snindels[val.snindels$Tumor_Sample_Barcode %in% val.snindels[val.snindels$Hugo_Symbol %in% gsea.validation.pi3k, ]$Tumor_Sample_Barcode, ]
+
+PlotMaf(val.snindels2, "Hugo_Symbol", 40, title = "Genes Mutated at least ")

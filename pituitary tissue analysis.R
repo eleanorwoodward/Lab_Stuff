@@ -1,4 +1,4 @@
-## formatting for pituitary tumor spreadsheet calcs
+## formatting for pituitary tumor spreadsheet. Makes sure that all samples with paired blood, normals, etc, are properly matched. 
 
 master.sheet <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Master_Sheet_R.txt",
                            stringsAsFactors = F, header = T)

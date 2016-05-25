@@ -61,7 +61,7 @@ mini.disc.indels <- discovery.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tum
                                                 "COSMIC_total_alterations_in_gene")]
 
 disc.snindels <- rbind(mini.disc.indels, mini.disc.snps)
-
+orphans <- FilterMaf(disc.snindels, c("MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
 disc.snindels <- FilterMaf(disc.snindels, hg.list[!is.na(hg.list)], "Tumor_Sample_Barcode")
 
 
@@ -115,6 +115,7 @@ mini.ph.indels <- ph.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample
 
 ph.snindels <- rbind(mini.ph.indels, mini.ph.snps)
 total.snindels <- rbind(disc.snindels[, -6], ph.snindels)
+total.snindels <- rbind(total.snindels, orphans[, -6])
 
 total.coding.snps <- rbind(mini.ph.snps, mini.disc.snps[, -6])
 
@@ -220,18 +221,8 @@ for (i in 1:nrow(ccgd.snindels)){
     ccgd.snindels$Tumor_Sample_Barcode[[i]] <- temp
 }
 
-
+ccgd.snindels <- FilterMaf(ccgd.snindels, unique(master.table[master.table$Cohort %in% c("ccgd.lg", "ccgd.hg", "ccgd.tbd"), ]$Pair.Name), "Tumor_Sample_Barcode")
 val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name,"Tumor_Sample_Barcode" )
-val.snindels2 <- val.snindels[val.snindels$i_tumor_f > .09, ]
-val.snindels2 <- PerSampleMaf(val.snindels2, "Hugo_Symbol")
-val.snindels2 <- ReccurentMaf(val.snindels2, "Hugo_Symbol")
-
-
-mini.unf.val.snps <- validation.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", 
-                                                "Start_position", "germline", "pon_germline")]
-mini.unf.val.indels <- validation.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification",
-                                                    "Start_position", "germline", "pon_germline")]
-val.unf.snindels <- rbind(mini.unf.val.snps, mini.unf.val.indels)
 
 
 

@@ -24,7 +24,7 @@ for (i in 1:length(input.list)){
         colnames(men97.het.comp)[3] <- "Men97"
         rownames(men97.het.comp) <- 1:nrow(men97.het.comp)
     }else{
-        # populate column with zero as default, to be modified if any of the present mutations are found
+        # populate column with zero as default, to be modified if any of the previously added mutations are found in current sample
         men97.het.comp[, i + 2] <- 0
         colnames(men97.het.comp)[i + 2] <- input.list[[i]][1,3]
         ## Loops through sample maf, checking each individual row

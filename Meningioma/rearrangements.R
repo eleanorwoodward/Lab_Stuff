@@ -46,6 +46,11 @@ colnames(good.rearrangements)[39:41] <- c("number.reads", "allelic.fraction", "u
 write.csv(good.rearrangements, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/all_passed_snowman_calls.csv"
           , row.names = F, quote = F)
 
+## check vs dranger calls
+ph.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "PH", ]$Pair.Name), ]
+
+
+
 ##Keep only relevant columns
 rearrangements <- good.rearrangements[, c(28, 1,2,31,35,37, 4,5,32, 33,34,36,38, 29)]
 rearrangements[, 15:16] <- "Intergenic"

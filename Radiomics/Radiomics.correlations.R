@@ -4,6 +4,8 @@ Master <- read.delim("C:/Users/Noah/Syncplicity Folders/Radiomics-NG LB only/Mas
 
 PDL <- read.delim("C:/Users/Noah/Syncplicity Folders/Radiomics-NG LB only/PDL_for_R.txt", stringsAsFactors = F)
 
+
+## combine PDL data with master table
 Master[, 6:13] <- "no data"
 for (i in 1:nrow(Master)){
     idx <- PDL$mrn %in% Master$mrn[i]

@@ -19,7 +19,7 @@ FilterMaf <- function(maf, list, column.name, keep = TRUE){
   #     maf: a maf
   #     list: list of column values to keep
   #     column.name: column in the maf which will be checked
-  #     keep: logical value. When false, discards selected rows
+  #     keep: optional, logical value. When false, discards selected rows
   
   # Returns: A maf matching input criteria
   
@@ -50,9 +50,9 @@ PlotMaf <- function(maf, column.name, percent = 100, lower.margin = 1, title = "
     # Args: 
     #     Maf: a maf file in array format. 
     #     column.name: a string with the name of the column that the barplot will be produced from. 
-    #     lower.margin: a multiplier that adjusts the marign at the bottom of the graph. 
+    #     lower.margin: optional, a multiplier that adjusts the marign at the bottom of the graph. 
     #     title: optional, gives the graph a title
-    #     percent: allows for plotting of only x% of hits ranked by frequency
+    #     percent: optional, allows for plotting of only top x% of hits ranked by frequency
     
     ## Error checking
     if (is.null(maf[[column.name]])){
@@ -115,59 +115,6 @@ AverageMaf <- function(maf, list, list.column, int.column){
   return(values)
 }
 
-CountMaf <- function(maf, column, var.list){
-  # Counts the number of entries in a given column of the maf that match values in the list.'
-  
-  # Args:
-  #     maf: a maf
-  #     column: the column whose entries will be counted
-  #     var.list: list of column values that will be counted
-  
-  # Returns: int with number of occurences
-  
-  ## Error Checking
-  if (is.null(maf[[column]])){
-    stop("Invalid column name")
-  }
-  
-  attendance <- var.list %in% maf[[column]]
-  if (sum(attendance) < length(attendance)){
-    warning("List element ", list[which(!attendance)], " not found")
-  }
-  
-  len <- 0
-  for (i in 1:length(var.list)){
-    len <- len + length(maf[which(maf[[column]] == var.list[i])])
-  }
-  return (len)
-}
-
-MiniMaf <- function(maf, column.list, keep = TRUE){
-  # Generates a paired down version of a maf given a list of columns
-  
-  # Args:
-  #     maf: a maf
-  #     column.list: a list of columns in original maf to filter based on
-  #     keep: when true, returns maf with only given columns. When false, returns maf without given columns
-  
-  # Returns: a reduced size maf
-  
-  ## Error Checking
-  attendance <- column.list %in% colnames(maf)
-  if (sum(attendance) < length(attendance)){
-    stop("List element ", column.list[which(!attendance)], " not found")
-  }
-  
-  
-  idx <- names(maf) %in% column.list
-  if (keep == TRUE){
-    mini <- maf[, idx]
-    return (mini)
-  }else{
-    mini <- maf[, !idx]
-    return (mini)
-  }
-}
 
 ReccurentMaf <- function(maf, column.name, threshold = 1){
   # Takes a maf file, and returns a filtered maf with only those entries in designated column with
@@ -269,22 +216,6 @@ FilterCutoffMaf <- function(maf1, maf2, cutoff, cut1 = "Filter 1", cut2 = "Filte
           las = 2, main = title)
 }
 
-## Takes a folder full of Mafs, and returns one concatenated maf
-
-CombineMaf <- function(directory, file.list = list.files(directory)){
-  x <- read.delim(paste(directory, file.list[1], sep = "/"), stringsAsFactors = FALSE, comment.char = "#")
-  for (i in 2:length(file.list)){
-    temp <- read.delim(paste(directory, file.list[i], sep = "/"), stringsAsFactors = FALSE, comment.char = "#")
-    x <- rbind(x, temp)
-    }
-    x
-  }
-
-PairSetFormat <- function(sample.name, cutoff = 3, replace = "M"){
-  temp <- substring(sample.name, cutoff)
-  temp <- paste(replace, temp, sep = "")
-  temp
-}
 
 ## Takes two tables of values, makes sure all values from each table appear in the other, and orders the table
 ## so that all entries are in same position. 
@@ -311,13 +242,14 @@ EqualizeTable <- function(table1, table2){
   table3
 }
 
+
+CleanYourRoom <- function(input.data, naughty.list = c()){
 ## Takes a data frame or matrix, and removes rows with problemtic entries
 
 ## Args:
 ##      input.data: the data to be input
 ##      naughty.list: additional parameters to exclude
 
-CleanYourRoom <- function(input.data, naughty.list = c()){
     for(i in 1:ncol(input.data)){
         bad.boys <- input.data[, i] %in% c("", "-", "N/A", "na", NA, naughty.list)
         input.data <- input.data[!bad.boys, ]
