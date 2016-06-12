@@ -136,7 +136,7 @@ for (i in 1:length(list.files(discovery.rearrangements.folder))){
 ## Keep rearrangements only with likely somatic score
 
 discovery.rearrangements <- discovery.rearrangements[discovery.rearrangements$somatic_lod > 4, ]
-discovery.rearrangements[, c(39, 40)] <- NA
+discovery.rearrangements[, 38:39] <- NA
 
 
 
@@ -155,8 +155,9 @@ for (i in 1:length(list.files(ph.rearrangements.folder))){
 ## Keep rearrangements only with likely somatic score
 
 ph.rearrangements <- ph.rearrangements[ph.rearrangements$somatic_lod > 4, ]
-ph.rearrangements[, c(39, 40)] <- NA
-
+ph.rearrangements[, 38:39] <- NA
+    
+    
 ph.rearrangements[ph.rearrangements$gene1 == "NF2" | ph.rearrangements$gene2 == "NF2", 27:36]
 
 
@@ -186,6 +187,8 @@ validation.coding.snps <- run.pon(validation.coding.snps, -1.5)
 validation.coding.snps <- run.exac(validation.coding.snps, .0001)
 validation.coding.snps <- run.esp(validation.coding.snps, .0001)
 
+validation.coding.snps[validation.coding.snps$Tumor_Sample_Barcode %in% bwh.paired.sample.list, c(300:315)]
+
 validation.filtered.coding.snps <- validation.coding.snps[validation.coding.snps$pon_germline == F &
                                                                        validation.coding.snps$germline == F & validation.coding.snps$esp_germline == F, ]
 
@@ -204,9 +207,17 @@ validation.coding.indels <- FilterMaf(validation.indels, indel.variants, "Varian
 validation.coding.indels <- run.pon(validation.coding.indels, -1.5)
 validation.coding.indels <- run.exac(validation.coding.indels, .0001)
 validation.coding.indels <- run.esp(validation.coding.indels, .0001)
+
+## overwrite defaults for paired samples
+validation.coding.indels[validation.coding.indels$Tumor_Sample_Barcode %in% bwh.paired.sample.list, c(276:288)]
+
 validation.filtered.coding.indels <- validation.coding.indels[validation.coding.indels$germline == F &
                                                                            validation.coding.indels$pon_germline == F & validation.coding.indels$esp_germline == F, ]
 
+validation.coding.indels[validation.coding.indels$Hugo_Symbol == "CRIPAK", c("Variant_Classification", "Start_position", "Tumor_Sample_Barcode", "pon_loglike", "pon_pass_loglike",
+                                                                             "AF","esp_AF", "i_tumor_f")]
+
+sort(unique(validation.coding.indels[validation.coding.indels$Hugo_Symbol == "CRIPAK", ]$Tumor_Sample_Barcode))
 ## combine validation mutations
 mini.val.snps <- validation.filtered.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
 mini.val.indels <- validation.filtered.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
@@ -225,6 +236,37 @@ ccgd.snindels <- FilterMaf(ccgd.snindels, unique(master.table[master.table$Cohor
 val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name,"Tumor_Sample_Barcode" )
 
 
+
+## write initial mutations/indels back to maf format for mutsig processing
+indel.files <- unique(validation.indels$Tumor_Sample_Barcode)
+indel.path <- c("C:/Users/Noah/OneDrive/Work/Meningioma/Firehose/upload")
+for (i in 1:length(indel.files)){
+    temp <- FilterMaf(validation.filtered.coding.indels, indel.files[i], "Tumor_Sample_Barcode")
+    if (nrow(temp) == 0){
+        temp <- validation.filtered.coding.indels
+        temp <- rbind(NA, validation.filtered.coding.indels)
+        temp <- temp[1, ]
+        write.table(temp, paste(indel.path, paste(indel.files[i], "indel", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F, na="")
+        
+    }else{
+        write.table(temp, paste(indel.path, paste(indel.files[i], "indel", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F)
+    }
+        
+}
+
+snp.files <- unique(validation.snps$Tumor_Sample_Barcode)
+snp.path <- c("C:/Users/Noah/OneDrive/Work/Meningioma/Firehose/upload")
+for (i in 1:length(snp.files)){
+    temp <- FilterMaf(validation.filtered.coding.snps, "MG-274-tumor", "Tumor_Sample_Barcode")
+    if (nrow(temp) == 0){
+        temp <- validation.filtered.coding.indels
+        temp <- rbind(NA, validation.filtered.coding.indels)
+        temp <- temp[1, ]
+        write.table(temp, paste(indel.path, paste(indel.files[i], "snp", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F, na="")
+    }else{
+        write.table(temp, paste(snp.path, paste(snp.files[i], "snp", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F)
+    }
+}
 
 ## original stuff
 
