@@ -17,27 +17,45 @@ master.table <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda 
 
 
 ## GSEA
-akt1.pathway.members <- c("FOXO4", "PDPK1", "FOXO1", "CASP9", "NR4A1", "AKT1",  "GSK3B" , "CDKN1B", "AKT1S1", "GSK3A" ,"MAPKAP1" , "AKT3",
-                          "MLST8", "CDKN1A" ,"MDM2", "CHUK" , "TSC2" ,"MTOR","CREB1", "RICTOR" , "FOXO3", 	"AKT2" ,"BAD", "RPS6KB2", "RICTOR")
+akt1.pathway.members <- c("FOXO4", "PDPK1", "FOXO1", "CASP9", "NR4A1",  "GSK3B" , "CDKN1B", "AKT1S1", "GSK3A" ,"MAPKAP1" , "AKT3",
+                          "MLST8", "CDKN1A" ,"MDM2", "CHUK" ,"CREB1", "FOXO3", 	"AKT2" ,"BAD", "RPS6KB2", 
+                          "GH1", "PTEN", "PIK3CA", "TSC2", "MTOR", "RICTOR", "IRS1", "AKT1")
 
-swi.snf.members <- c("ARID1A", "ARID1B", "SMARCB1", "SMARCA2", "SMARCA4", "SMARCE1", "ARID2", "BRD7", "PBRM1")
+swi.snf.members <- c("ARID1A", "ARID1B", "SMARCB1", "SMARCA2", "SMARCA4", "SMARCE1", "ARID2", "BRD7", "PBRM1",
+                     "KMT2A", "KDM6A", "KDM5C", "KDM4E", "KDM6B")
 
 hedgehog.members <- c("SHH", "GLI2", "GLI3", "KIF7", "STK36", "ADRBK1", "SAP18", "IHH", "PTCH1", 
-                      "GLI1", "ARNTL", "DHH", "SUFU", "SMO", "SIN3A", "PTCH2")
+                      "GLI1", "ARNTL", "DHH", "SUFU", "SMO", "SIN3A", "PTCH2", "CTNNB1", "FOXC1", "PTCH1", "FOXC1")
 
 bwh.snindels <- rbind(total.snindels, ccgd.snindels)
 bwh.snindels <- bwh.snindels[bwh.snindels$i_tumor_f > .09, ]
 bwh.paired.sample.list <- master.table[master.table$Paired.normal == 1 & (master.table$Analsysis.Set. == 1 | master.table$Cohort %in% c("ccgd.lg", "PH", "ccgd.hg", "ccgd.tbd")), ]$Pair.Name
 bwh.sample.list <- master.table[master.table$Analsysis.Set. == 1 | master.table$Cohort %in% c("ccgd.lg", "PH", "ccgd.hg", "ccgd.tbd"), ]$Pair.Name
 bwh.sample.list <- bwh.sample.list[!is.na(bwh.sample.list)]
+hg.sample.list <- master.table[master.table$Analsysis.Set. == 1 | master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name
+lg.sample.list <- master.table[master.table$Cohort %in% c("ccgd.lg", "PH"), ]$Pair.Name
+
 bwh.snindels <- FilterMaf(bwh.snindels, bwh.sample.list, "Tumor_Sample_Barcode")
 bwh.snindels <- PerSampleMaf(bwh.snindels, "Hugo_Symbol")
-bwh.snindels <- ReccurentMaf(bwh.snindels, "Hugo_Symbol")
+bwh.paired.snindels <- FilterMaf(bwh.snindels, bwh.paired.sample.list, "Tumor_Sample_Barcode")
+
+hg.snindels <- FilterMaf(bwh.snindels, hg.sample.list, "Tumor_Sample_Barcode")
+hg.snindels.2 <- ReccurentMaf(hg.snindels, "Hugo_Symbol")
+hg.snindels.3 <- ReccurentMaf(hg.snindels, "Hugo_Symbol", 2)
+hg.paired.snindels <- FilterMaf(hg.snindels, bwh.paired.sample.list, "Tumor_Sample_Barcode")
+hg.paired.snindels.2 <- ReccurentMaf(hg.paired.snindels, "Hugo_Symbol")
+lg.snindels <- FilterMaf(bwh.snindels, lg.sample.list, "Tumor_Sample_Barcode")
+lg.paired.snindels <- FilterMaf(lg.snindels, bwh.paired.sample.list, "Tumor_Sample_Barcode")
+
+bwh.snindels.min2 <- ReccurentMaf(bwh.snindels, "Hugo_Symbol")
 bwh.snindels.min3 <- ReccurentMaf(bwh.snindels, "Hugo_Symbol", 2)
 bwh.snindels.min5 <- ReccurentMaf(bwh.snindels, "Hugo_Symbol", 4)
 write.csv(bwh.snindels, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bwh.normals.atleast2.csv")
 write.csv(bwh.snindels.min3, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bwh.atleast3.csv")
 write.csv(bwh.snindels.min5, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/bwh.atleast5.csv")
+write.csv(hg.paired.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/hg.paired.2.csv")
+write.csv(hg.snindels.3, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/hg.3.csv")
+
 
 bwh.table <- master.table[master.table$Pair.Name %in% bwh.sample.list, ]
 bwh.table <- bwh.table[order(-as.numeric(bwh.table$Medium.Grade), bwh.table$chr22.loss, bwh.table$NF2.snp.indel.rearrangement, 
@@ -51,18 +69,20 @@ colnames(bwh.table)[69:72] <- c("mTOR", "hedgehog", "Cell.cycle", "Chromatin")
 mTOR <- c("AKT1", "TSC2", "PIK3CA")
 hedgehog <- c("CTNNB1", "SUFU", "SMO")
 cell.cycle <- c("CDKN2C", "ANAPC2", "CDC27", "TP53", "CHEK2")
-Chromatin <- c("KMT2D", "ARID1A", "SMARCA2", "ARID1B", "SMARCB1", "KMT2C", "PRDM9", "ARID2", "KMT2A")
+Chromatin <- c("KMT2D", "ARID1A", "SMARCA2", "ARID1B", "SMARCB1", "KMT2C", "PRDM9", "ARID2")
 
-## assign value to missing info
-for (i in 1:length(Chromatin)){
-    bwh.table[bwh.table$Pair.Name %in% bwh.snindels.min3[bwh.snindels.min3$Hugo_Symbol == Chromatin[i],]$Tumor_Sample_Barcode, 72] <- Chromatin[i]
+target <- swi.snf.members
+
+## fill in pathway mutations
+for (i in 1:length(target)){
+    bwh.table[bwh.table$Pair.Name %in% bwh.snindels[bwh.snindels$Hugo_Symbol == target[i],]$Tumor_Sample_Barcode, 72] <- target[i]
 }
 
-bwh.table <- bwh.table[order(bwh.table$Medium.Grade, -bwh.table$NF2.snp.indel.rearrangement, 
+bwh.table <- bwh.table[order(bwh.table$Simple.Histopath.Grade, -bwh.table$NF2.snp.indel.rearrangement, 
                              bwh.table$mTOR == "0", bwh.table$hedgehog == "0", bwh.table$Cell.cycle == "0", bwh.table$Chromatin == "0"), ]
 
 
-write.csv(bwh.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/BWH.Comut/bhw.min3_pathway_v2.csv")
+write.csv(bwh.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/BWH.Comut/bhw.all_members.csv")
 
 ## check overlap between genes and NF2
 bwh.snindels[bwh.snindels$Tumor_Sample_Barcode %in% bwh.snindels[bwh.snindels$Hugo_Symbol == "RICTOR", ]$Tumor_Sample_Barcode, ]
@@ -73,6 +93,7 @@ total.snindels.2 <- ReccurentMaf(total.snindels.2, "Hugo_Symbol")
 write.csv(total.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_mutated_at_least_twice.csv", row.names = F)
 
 disc.snindels.2 <- disc.snindels[disc.snindels$i_tumor_f > .1, ]
+disc.snindels.2 <- PerSampleMaf(disc.snindels.2, "Hugo_Symbol")
 disc.snindels.2 <- ReccurentMaf(disc.snindels.2, "Hugo_Symbol")
 write.csv(disc.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_mutated_at_least_twice_hg.csv", row.names = F)
 
@@ -96,6 +117,8 @@ hg.table <- master.table[master.table$Analsysis.Set. == 1 | (master.table$Cohort
 hg.table <- hg.table[order(-hg.table$NF2.snp.indel, hg.table$Grade), ]
 
 ## for heatmap generation
+##
+##
 
 write.table(hg.table[, 2], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/hg.unique.4.14/by_nf2_order.txt", sep = "\t", row.names = F, quote = F)
 
@@ -136,6 +159,19 @@ comut <- t(gistic.set[, c(2, 5,6,17, 19, 20)])
 write.csv(comut, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/total.gistic.414/total.gistic.bychr22.csv")
 
 
+## Hg + Lg, with angiomatous/rhaboid separated
+
+total.table <- master.table[master.table$Analsysis.Set. == 1 | master.table$Cohort == "PH", ]
+
+total.table <- total.table[order(total.table$SNO.Heatmap.Grade, -total.table$chr22.loss), ]
+
+write.table(total.table[1:55, 3], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/angiomatus.clustering.order.SNO.txt", sep = "\t", row.names = F, quote = F)
+
+write.csv(total.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/angiomatus.clustering.SNO.comut.csv")
+
+
+
+
 ## Massive plot: multiple grades
 massive.table <- master.table[master.table$Master.Cohort == 1, ]
 massive.table <- massive.table[order(massive.table$Grade, -massive.table$chr22.loss, -massive.table$NF2.snp.indel.rearrangement,
@@ -157,14 +193,15 @@ massive.table <- massive.table[order(massive.table$Simple.Grade, -massive.table$
                                      -massive.table$TRAF7, -massive.table$KLF4, -massive.table$AKT1, -massive.table$SMO), ]
 write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.v4_verticle_location.csv")
 
-## all grades, location included
-massive.table <- massive.table[order(massive.table$Simple.Grade, -massive.table$chr22.loss, -massive.table$NF2.snp.indel.rearrangement,
+## all grades, histopath grade used
+massive.table <- massive.table[order(massive.table$Simple.Histopath.Grade, -massive.table$chr22.loss, -massive.table$NF2.snp.indel.rearrangement,
                                      -massive.table$TRAF7, -massive.table$KLF4, -massive.table$AKT1, -massive.table$SMO), ]
-write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.updated.csv")
+write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.updateder.csv")
 
 
 ## p values for major mutation classes
-fisher.test(table(massive.table$Simple.Grade, massive.table$NF2.snp.indel.rearrangement))
+fisher.test(table(massive.table$chr22.loss, massive.table$TKAS))
+fisher.test(table(massive.table$NF2.snp.indel.rearrangement, massive.table$NF2.snp.indel.rearrangement))
 fisher.test(table(massive.table$Simple.Grade, massive.table$chr22.loss))
 fisher.test(table(massive.table$Simple.Grade, massive.table$TKAS))
 fisher.test(table(massive.table$Simple.Grade, massive.table$SMO))
@@ -177,11 +214,18 @@ fisher.test(table(massive.table[massive.table$chr22.loss == F & massive.table$NF
 
 fisher.test(table(massive.table[massive.table$chr22.loss == T,]$NF2.snp.indel.rearrangement, massive.table[massive.table$chr22.loss == T, ]$TKAS))
 
+fisher.test(table(massive.table[massive.table$Cohort == "clark", ]$Simple.Grade, massive.table[massive.table$Cohort == "clark", ]$SMO))
+
 ## investigate suspicious samples
 
 fishy <- massive.table[massive.table$chr22.loss == F & massive.table$NF2.snp.indel.rearrangement == T, 1:10]
-fishy <- massive.table[massive.table$TKAS == 1 & massive.table$NF2.snp.indel.rearrangement == T, 1:10]
+samples <- c("MEN_PH_LG_59-pair","MEN_PH_LG_60-pair", "MEN_PH_LG_77-pair", "MEN_PH_LG_85-pair", "MG-133-tumor")
 
+ph.snps[ph.snps$Tumor_Sample_Barcode %in% samples[4], c(1,5,9,10, 16, 91)]
+ph.indel[ph.indel$Tumor_Sample_Barcode %in% samples[4], c(1,5,9,10, 16, 268)]
+
+validation.snps[validation.snps$Tumor_Sample_Barcode %in% samples[5], c(1,5,9,10, 16, 266)]
+validation.indels[validation.indels$Tumor_Sample_Barcode %in% samples[5], c(1,5,9,10, 16, 268)]
 
 sum(massive.table$Simple.Grade == "II" & (massive.table$NF2.snp.indel.rearrangement == T | massive.table$chr22.loss == T))
 sum(massive.table$Simple.Grade == "II" & massive.table$TKAS == 1)
@@ -273,4 +317,3 @@ counts <- c(counts, sum(total.table$Subtype == "Rhabdoid" & total.table$Chr1.los
 counts <- c(counts, sum(total.table$Grade != "I" & total.table$Subtype != "Rhabdoid" & total.table$Chr1.loss == 1))
 rhab.mtrx <- matrix(counts, nrow = 2)
 fisher.test(rhab.mtrx)
-
