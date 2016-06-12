@@ -24,30 +24,61 @@ total.rearrangements <- rbind(ph.rearrangements, discovery.rearrangements)
 for (i in 1:nrow(total.rearrangements)){
     vals <- strsplit(total.rearrangements[i, 29], ":")
     if (length(vals[[1]]) < 3){
-        total.rearrangements[i, 39:40] <- NA
+        total.rearrangements[i, 38:39] <- NA
     }else{
         
     
         variants <- as.numeric(vals[[1]][2])
         total <- as.numeric(vals[[1]][3])
-        total.rearrangements[i, 39:40] <- c(variants, total)
+        total.rearrangements[i, 38:39] <- c(variants, total)
     }
 }
-total.rearrangements[,41] <- seq(nrow(total.rearrangements))
+total.rearrangements[,40] <- seq(nrow(total.rearrangements))
 ## Keeps only those that pass QC filter
 ## If span is greater than 1000 bases, allows for 5% allelic fraction and 2 reads
 ## if span is less than 1000 bases, requires 10% af and at least 5 reads
-good.rearrangements <- total.rearrangements[(total.rearrangements$span > 1000 | total.rearrangements$span == -1) & total.rearrangements[, 39] > 1 & 
-                                                     (total.rearrangements[,39] / total.rearrangements[, 40] > .05 ) 
-                                             | total.rearrangements[, 39] > 5 & (total.rearrangements[,39] / total.rearrangements[, 40] > .10 ) , ]
-good.rearrangements <- FilterMaf(good.rearrangements, c(total.list, "MEN_PH_LG_41-pair"), "Sample")
-good.rearrangements[, 41] <- seq(nrow(good.rearrangements))
-colnames(good.rearrangements)[39:41] <- c("number.reads", "allelic.fraction", "unique.identifier")
+good.rearrangements <- total.rearrangements[(total.rearrangements$span > 1000 | total.rearrangements$span == -1) & total.rearrangements[, 38] > 1 & 
+                                                     (total.rearrangements[,38] / total.rearrangements[, 39] > .05 ) 
+                                             | total.rearrangements[, 38] > 5 & (total.rearrangements[,38] / total.rearrangements[, 39] > .10 ) , ]
+#good.rearrangements <- FilterMaf(good.rearrangements, c(total.list, "MEN_PH_LG_41-pair"), "Sample")
+good.rearrangements[, 40] <- seq(nrow(good.rearrangements))
+colnames(good.rearrangements)[38:40] <- c("number.reads", "allelic.fraction", "unique.identifier")
 write.csv(good.rearrangements, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/all_passed_snowman_calls.csv"
           , row.names = F, quote = F)
 
-## check vs dranger calls
+## check snowman vs dranger calls
+disc.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_disc_calls.txt", stringsAsFactors = F)
+disc.dranger <- FilterMaf(disc.dranger, "MEN0049", "individual", F)
+ph.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_ph_calls.txt", stringsAsFactors = F)
+
+disc.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "Discovery", ]$Pair.Name), ]
 ph.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "PH", ]$Pair.Name), ]
+
+for (i in 1:nrow(disc.good.rearrangements)){
+    temp <- disc.good.rearrangements[i, "Sample"]
+    temp <- substr(temp, 1, 7)
+    disc.good.rearrangements[i, "Sample"] <- temp
+}
+
+
+discovery.comparison <- disc.dranger[, c(1,3,5,6,8)]
+discovery.comparison[, 6] <- "dranger"
+
+for (i in 1:15){
+    matches <- discovery.comparison[discovery.comparison$individual == disc.good.rearrangements$Sample[i] & discovery.comparison$chr1 == disc.good.rearrangements$chr1[i]
+                                    & discovery.comparison$pos1 == disc.good.rearrangements$pos1[i], ]
+    if (nrow(matches) == 0){
+        discovery.comparison <- rbind(discovery.comparison, c(disc.good.rearrangements[i, 28], disc.good.rearrangements[i, 1], 
+                                                              disc.good.rearrangements[i, 2], disc.good.rearrangements[i, 4], disc.good.rearrangements[i,5], "snow"))
+    }else{
+        #discovery.comparison[as.numeric(rownames(matches)[1]), 6] <- "both"
+    }
+}
+
+
+
+
+
 
 
 
