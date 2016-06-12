@@ -64,7 +64,7 @@ for (i in 1:nrow(maf)){
   }
   
   ## Get all matches at current position
-  match.idx <- which((esp$chrom == maf$Chromosome[i]) & (esp$base == maf$Start_position[i]) & esp$af > af)
+  match.idx <- which((esp$chrom == maf$Chromosome[i]) & (esp$base == maf$Start_position[i]) & (esp$af > af))
   
   ## Deal with SNPs first   
   if (maf$Variant_Type[i] == "SNP"){
@@ -87,7 +87,7 @@ for (i in 1:nrow(maf)){
       maf$esp_POS[i] <- NA
       maf$esp_REF[i] <- NA
       maf$esp_ALT[i] <- NA
-      maf$esp_AF[i] <- NA
+      maf$esp_AF[i] <- 0
       maf$esp_germline[i] <- FALSE
     }
     
@@ -112,7 +112,7 @@ for (i in 1:nrow(maf)){
       maf$esp_POS[i] <- NA
       maf$esp_REF[i] <- NA
       maf$esp_ALT[i] <- NA
-      maf$esp_AF[i] <- NA
+      maf$esp_AF[i] <- 0
       maf$esp_germline[i] <-FALSE
     }
     

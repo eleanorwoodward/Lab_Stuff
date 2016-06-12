@@ -43,7 +43,7 @@ run.exac <- function(maf, af = 0){
       maf$POS[i] <- NA
       maf$REF[i] <- NA
       maf$ALT[i] <- NA
-      maf$AF[i] <- NA
+      maf$AF[i] <- 0
       maf[i,'germline']=FALSE
     }
     
@@ -70,7 +70,7 @@ run.exac <- function(maf, af = 0){
       maf$POS[i] <- NA
       maf$REF[i] <- NA
       maf$ALT[i] <- NA
-      maf$AF[i] <- NA
+      maf$AF[i] <- 0
       maf[i,'germline']=FALSE
     }
     
