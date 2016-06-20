@@ -169,7 +169,8 @@ write.table(total.table[1:55, 3], "C:/Users/Noah/Syncplicity Folders/Meningioma 
 
 write.csv(total.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/angiomatus.clustering.SNO.comut.csv")
 
-
+disc.table <- master.table[master.table$Analsysis.Set. == 1, ]
+disc.table <- disc.table[!is.na(disc.table$Analsysis.Set.), ]
 
 
 ## Massive plot: multiple grades
@@ -215,6 +216,14 @@ fisher.test(table(massive.table[massive.table$chr22.loss == F & massive.table$NF
 fisher.test(table(massive.table[massive.table$chr22.loss == T,]$NF2.snp.indel.rearrangement, massive.table[massive.table$chr22.loss == T, ]$TKAS))
 
 fisher.test(table(massive.table[massive.table$Cohort == "clark", ]$Simple.Grade, massive.table[massive.table$Cohort == "clark", ]$SMO))
+
+# p value for difference in NF2 inactivation rates
+
+fisher.test(table(disc.snindels$Hugo_Symbol == "NF2", disc.snindels$Variant_Classification %in% c("Frame_Shift_Del", "Nonsense_Mutation","Splice_Site")))
+
+table(disc.snindels.clean$Hugo_Symbol)[order(table(disc.snindels.clean$Hugo_Symbol), decreasing = T)][1:62]
+
+
 
 ## investigate suspicious samples
 
@@ -317,3 +326,13 @@ counts <- c(counts, sum(total.table$Subtype == "Rhabdoid" & total.table$Chr1.los
 counts <- c(counts, sum(total.table$Grade != "I" & total.table$Subtype != "Rhabdoid" & total.table$Chr1.loss == 1))
 rhab.mtrx <- matrix(counts, nrow = 2)
 fisher.test(rhab.mtrx)
+
+pancan <- read.delim("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/compact.data.v3.maf", stringsAsFactors = F)
+pancan.filtered <- FilterMaf(pancan, snp.variants, "type")
+unique.cancers <- unique(pancan.filtered$ttype)
+output.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/mutations/mutation_counts"
+for (i in 1:length(unique.cancers)){
+    temp <- table(pancan.filtered[pancan.filtered$ttype == unique.cancers[i], ]$patient)
+    write.csv(temp, paste(output.folder, paste(unique.cancers[i], "csv", sep = "."), sep = "_"))
+}
+

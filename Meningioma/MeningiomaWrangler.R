@@ -63,7 +63,8 @@ mini.disc.indels <- discovery.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tum
 disc.snindels <- rbind(mini.disc.indels, mini.disc.snps)
 orphans <- FilterMaf(disc.snindels, c("MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
 disc.snindels <- FilterMaf(disc.snindels, hg.list[!is.na(hg.list)], "Tumor_Sample_Barcode")
-
+disc.snindels.clean <- disc.snindels[disc.snindels$i_tumor_f > .0999, ]
+disc.snindels.clean <- PerSampleMaf(disc.snindels.clean, "Hugo_Symbol")
 
 ph.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/LG")
 ph.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/LG")
@@ -233,7 +234,7 @@ for (i in 1:nrow(ccgd.snindels)){
 }
 
 ccgd.snindels <- FilterMaf(ccgd.snindels, unique(master.table[master.table$Cohort %in% c("ccgd.lg", "ccgd.hg", "ccgd.tbd"), ]$Pair.Name), "Tumor_Sample_Barcode")
-val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name,"Tumor_Sample_Barcode" )
+val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Simple.Histopath.Grade == 2, ]$Pair.Name,"Tumor_Sample_Barcode" )
 
 
 
@@ -257,12 +258,12 @@ for (i in 1:length(indel.files)){
 snp.files <- unique(validation.snps$Tumor_Sample_Barcode)
 snp.path <- c("C:/Users/Noah/OneDrive/Work/Meningioma/Firehose/upload")
 for (i in 1:length(snp.files)){
-    temp <- FilterMaf(validation.filtered.coding.snps, "MG-274-tumor", "Tumor_Sample_Barcode")
+    temp <- FilterMaf(validation.filtered.coding.snps, snp.files[i], "Tumor_Sample_Barcode")
     if (nrow(temp) == 0){
-        temp <- validation.filtered.coding.indels
-        temp <- rbind(NA, validation.filtered.coding.indels)
+        temp <- validation.filtered.coding.snps
+        temp <- rbind(NA, validation.filtered.coding.snps)
         temp <- temp[1, ]
-        write.table(temp, paste(indel.path, paste(indel.files[i], "snp", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F, na="")
+        write.table(temp, paste(snp.path, paste(snp.files[i], "snp", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F, na="")
     }else{
         write.table(temp, paste(snp.path, paste(snp.files[i], "snp", "txt", sep ="."), sep = "/"), sep = "\t", quote = F, row.names = F)
     }
