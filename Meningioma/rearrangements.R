@@ -46,6 +46,8 @@ colnames(good.rearrangements)[38:40] <- c("number.reads", "allelic.fraction", "u
 write.csv(good.rearrangements, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/all_passed_snowman_calls.csv"
           , row.names = F, quote = F)
 
+
+
 ## check snowman vs dranger calls
 disc.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_disc_calls.txt", stringsAsFactors = F)
 disc.dranger <- FilterMaf(disc.dranger, "MEN0049", "individual", F)
@@ -63,20 +65,21 @@ for (i in 1:nrow(disc.good.rearrangements)){
 
 discovery.comparison <- disc.dranger[, c(1,3,5,6,8)]
 discovery.comparison[, 6] <- "dranger"
+rownames(discovery.comparison) <- seq(nrow(discovery.comparison))
 
-for (i in 1:15){
+for (i in 1:nrow(disc.good.rearrangements)){
     matches <- discovery.comparison[discovery.comparison$individual == disc.good.rearrangements$Sample[i] & discovery.comparison$chr1 == disc.good.rearrangements$chr1[i]
-                                    & discovery.comparison$pos1 == disc.good.rearrangements$pos1[i], ]
+                                    & discovery.comparison$pos1 %in% seq(from = disc.good.rearrangements$pos1[i] -3,length.out = 6), ]
     if (nrow(matches) == 0){
         discovery.comparison <- rbind(discovery.comparison, c(disc.good.rearrangements[i, 28], disc.good.rearrangements[i, 1], 
-                                                              disc.good.rearrangements[i, 2], disc.good.rearrangements[i, 4], disc.good.rearrangements[i,5], "snow"))
+                                                              disc.good.rearrangements[i, 2], disc.good.rearrangements[i, 4], disc.good.rearrangements[i,5], "snowman"))
     }else{
-        #discovery.comparison[as.numeric(rownames(matches)[1]), 6] <- "both"
+        discovery.comparison[as.numeric(rownames(matches)[1]), 6] <- "both"
     }
 }
 
-
-
+discovery.comparison <- discovery.comparison[order(discovery.comparison$individual, as.numeric(discovery.comparison$chr1), as.numeric(discovery.comparison$pos1)),]
+write.csv(discovery.comparison, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/discovery_cohort_comparison.csv", row.names = F, quote = F)
 
 
 
