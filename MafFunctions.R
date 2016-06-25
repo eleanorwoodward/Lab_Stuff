@@ -7,8 +7,8 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//ESPFi
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//PoNFilter.R")
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//CallCompare.R")
 
-source("http://www.bioconductor.org/biocLite.R")
-biocLite(c("rtracklayer", "AnnotationHub", "Rsamtools"))
+# asource("http://www.bioconductor.org/biocLite.R")
+# biocLite(c("rtracklayer", "AnnotationHub", "Rsamtools"))
 
 ## Nice packages
 library(grDevices)
@@ -261,3 +261,14 @@ CleanYourRoom <- function(input.data, naughty.list = c()){
     return (input.data)
 }
 
+TestStatistic <- function(vector, mu){
+## takes a vector of values, determines if average is significantly different from input
+    
+## Args:
+##      vector: vector of numeric values
+##      mu: value to compare vector values to    
+    deviation <- sd(vector)
+    average <- mean(vector)
+    denom <- deviation / sqrt(length(vector))
+    return((mu - average) / denom)
+}

@@ -60,7 +60,7 @@ mini.disc.snps <- discovery.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_S
 mini.disc.indels <- discovery.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position",
                                                 "COSMIC_total_alterations_in_gene")]
 
-disc.snindels <- rbind(mini.disc.indels, mini.disc.snps)
+disc.snindels.all <- rbind(mini.disc.indels, mini.disc.snps)
 orphans <- FilterMaf(disc.snindels, c("MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
 disc.snindels <- FilterMaf(disc.snindels, hg.list[!is.na(hg.list)], "Tumor_Sample_Barcode")
 disc.snindels.clean <- disc.snindels[disc.snindels$i_tumor_f > .0999, ]
@@ -115,8 +115,9 @@ mini.ph.indels <- ph.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample
 # colnames(mini.ph.indels)[2] <- "i_tumor_f"
 
 ph.snindels <- rbind(mini.ph.indels, mini.ph.snps)
+ph.snindels <- rbind(ph.snindels, orphans[, -6])
 total.snindels <- rbind(disc.snindels[, -6], ph.snindels)
-total.snindels <- rbind(total.snindels, orphans[, -6])
+#total.snindels <- rbind(total.snindels, orphans[, -6])
 
 total.coding.snps <- rbind(mini.ph.snps, mini.disc.snps[, -6])
 
@@ -188,7 +189,6 @@ validation.coding.snps <- run.pon(validation.coding.snps, -1.5)
 validation.coding.snps <- run.exac(validation.coding.snps, .0001)
 validation.coding.snps <- run.esp(validation.coding.snps, .0001)
 
-validation.coding.snps[validation.coding.snps$Tumor_Sample_Barcode %in% bwh.paired.sample.list, c(300:315)]
 
 validation.filtered.coding.snps <- validation.coding.snps[validation.coding.snps$pon_germline == F &
                                                                        validation.coding.snps$germline == F & validation.coding.snps$esp_germline == F, ]
@@ -209,16 +209,10 @@ validation.coding.indels <- run.pon(validation.coding.indels, -1.5)
 validation.coding.indels <- run.exac(validation.coding.indels, .0001)
 validation.coding.indels <- run.esp(validation.coding.indels, .0001)
 
-## overwrite defaults for paired samples
-validation.coding.indels[validation.coding.indels$Tumor_Sample_Barcode %in% bwh.paired.sample.list, c(276:288)]
 
 validation.filtered.coding.indels <- validation.coding.indels[validation.coding.indels$germline == F &
                                                                            validation.coding.indels$pon_germline == F & validation.coding.indels$esp_germline == F, ]
 
-validation.coding.indels[validation.coding.indels$Hugo_Symbol == "CRIPAK", c("Variant_Classification", "Start_position", "Tumor_Sample_Barcode", "pon_loglike", "pon_pass_loglike",
-                                                                             "AF","esp_AF", "i_tumor_f")]
-
-sort(unique(validation.coding.indels[validation.coding.indels$Hugo_Symbol == "CRIPAK", ]$Tumor_Sample_Barcode))
 ## combine validation mutations
 mini.val.snps <- validation.filtered.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
 mini.val.indels <- validation.filtered.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
@@ -234,7 +228,7 @@ for (i in 1:nrow(ccgd.snindels)){
 }
 
 ccgd.snindels <- FilterMaf(ccgd.snindels, unique(master.table[master.table$Cohort %in% c("ccgd.lg", "ccgd.hg", "ccgd.tbd"), ]$Pair.Name), "Tumor_Sample_Barcode")
-val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Simple.Histopath.Grade == 2, ]$Pair.Name,"Tumor_Sample_Barcode" )
+val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Simple.Histopath.Grade == 2 & master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name,"Tumor_Sample_Barcode" )
 
 
 

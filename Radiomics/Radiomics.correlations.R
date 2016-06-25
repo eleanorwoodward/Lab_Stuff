@@ -1,5 +1,9 @@
 ## Merge PDL-1 data 
 
+## todos: redo all tests with non-parametric equivalents
+## anova: cruskal wallis (alternatively, ANOVA on ranks)
+## t test: replace with wilcoxson, check if Chi-Squared satisfies requirements
+
 Master <- read.delim("C:/Users/Noah/Syncplicity Folders/Radiomics-NG LB only/Master_Sheet_For_R.txt", stringsAsFactors = F)
 
 PDL <- read.delim("C:/Users/Noah/Syncplicity Folders/Radiomics-NG LB only/PDL_for_R.txt", stringsAsFactors = F)
@@ -118,8 +122,8 @@ names(cas) <- "CAS"
 mus <- 182
 names(mus) <- "MUS"
 
-atypical <- c(11, 13,14,16)
-names(atypical) <- c("Hypercellularity", "Sheeting", "Prominent Nucleoli", "Necrosis")
+atypical <- c(11,12, 13,14,16)
+names(atypical) <- c("Hypercellularity", "Nuclear Atypia", "Sheeting", "Prominent Nucleoli", "Necrosis")
 
 pdl <- c(190:192)
 names(pdl) <- c("RNA", "IHC", "Combined")
@@ -139,6 +143,25 @@ for (i in 1:length(imaging.features)){
     }    
 }
 mtrx1
+
+
+# 1a.	semantic imaging features (columns BT-CE) vs. location 
+#       fisher's exact for individual
+
+mtrx1 <- matrix(NA, length(imaging.features), 2)
+rownames(mtrx1) <- names(imaging.features)
+colnames(mtrx1) <- names(grades)
+for (i in 1:length(imaging.features)){
+    mini <- CleanYourRoom(correlations.data[, c(location[2], imaging.features[i])])
+    tbl <- table(mini[, 1], mini[, 2])
+    if (length(dim(tbl)) == 2){
+        math.party <- chisq.test(tbl)
+        mtrx1[i, 1] <- signif(math.party$p.value, 2)
+    }    
+}
+mtrx1
+
+
 
 ## multivariate analysis
 small <- CleanYourRoom(correlations.data[, c(grades, imaging.features)])
@@ -326,15 +349,18 @@ mtrx6
 #       ANOVA for one v one, glm for combined 
 mtrx7 <- matrix(NA, length(imaging.features), 1)
 rownames(mtrx7) <- names(imaging.features)
-colnames(mtrx7) <- c("CAS")
+colnames(mtrx7) <- c("MUS")
 for (i in 1:length(imaging.features)){
-    mini <- CleanYourRoom(correlations.data[, c(cas, imaging.features[i])])
+    mini <- correlations.data[correlations.data$molgrade == 2, ]
+    mini <- CleanYourRoom(mini[, c(mus, imaging.features[i])], naughty.list = c())
+    mean(mini[mini[, 2] ==0, ]$MUS)
     if (length(unique(mini[, 2])) > 1){
         math.party <- aov(mini[, 1] ~ as.character(mini[, 2]))
         mtrx7[i, 1] <- summary(math.party)[[1]][1,5]
     }
 }
 mtrx7
+
 
 small <- correlations.data[, c(cas, imaging.features)]
 small <- CleanYourRoom(small, "0?")
@@ -428,6 +454,7 @@ table(mini$Loclass2, mini$molgrade)
 mtrx12 <- matrix(NA,2,1)
 rownames(mtrx12) <- c("MUS", "CAS")
 colnames(mtrx12) <- "Atypical Gradient"
+mini <- correlations.data[correlations.data$molgrade ==1 , c(mus, cas, atypical)]
 mini <- correlations.data[, c(mus, cas, atypical)]
 bye.felicia <- function(val){
     if (is.na(val)){
@@ -438,13 +465,20 @@ bye.felicia <- function(val){
 }
 
 mini <- apply(mini,2, function(x) sapply(x,bye.felicia))
-mini <- cbind(mini, sum(mini[, 3:6]))
-mini[, 7] <- rowSums(mini[, 3:6])
-mtrx12[1,1] <- summary(lm(mini[, 1] ~ mini[, 7]))$coefficients[2,4]
-mtrx12[2,1] <- summary(lm(mini[, 2] ~ mini[, 7]))$coefficients[2,4]
+mini <- cbind(mini, rowSums(mini[, 3:7]))
+mtrx12[1,1] <- summary(lm(mini[, 1] ~ mini[, 8]))$coefficients[2,4]
+mtrx12[2,1] <- summary(lm(mini[, 2] ~ mini[, 8]))$coefficients[2,4]
 
 mtrx12
 
+
+baby <- correlations.data[correlations.data$molgrade ==1, c("MUS", "molgrade")]
+baby <- rbind(baby, correlations.data[correlations.data$molgrade ==3, c("MUS", "molgrade")])
+write.csv(baby, "C:/Users/Noah/OneDrive/Work/Presentations/Japan/mus.scores.csv", quote = F, row.names = F)
+
+baby <- (mini[mini[, 8] == 0,][,c(1, 8)])
+baby <- rbind(baby, mini[mini[, 8] == 5,][,c(1,8)])
+write.csv(baby, "C:/Users/Noah/OneDrive/Work/Presentations/Japan/mus_vs_imaging_allgr.csv", quote = F, row.names = F)
 
 ## PD-L1 expression vs Edema
 
