@@ -47,7 +47,6 @@ colnames(combined)[9] <- "drop"
  
 write.csv(combined, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutations/decision.time.csv", row.names = F)
 
-write.csv(val.snindels2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/validation.mutated.2.csv")
 
 
 
@@ -57,3 +56,40 @@ val.snindels[val.snindels$Hugo_Symbol %in% gsea.validation.pi3k, ]
 val.snindels[val.snindels$Tumor_Sample_Barcode %in% val.snindels[val.snindels$Hugo_Symbol %in% gsea.validation.pi3k, ]$Tumor_Sample_Barcode, ]
 
 PlotMaf(val.snindels2, "Hugo_Symbol", 40, title = "Genes Mutated at least ")
+
+
+val.snindels.clean <- val.snindels[val.snindels$i_tumor_f > .099, ]
+val.snindels.clean <- ReccurentMaf(val.snindels.clean, "Hugo_Symbol")
+
+write.csv(val.snindels.clean, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/validation.mutated.2.csv")
+
+
+## permutation testing for enrichment in validation sequenced genes
+## define space of all possible genes
+all.genes <- validation.list[,1]
+
+## PIK3CA enrichment genes defined by all genes in pathway
+cpdb.hits <- c("AKT1", "ERBB3", "EGFR", "NRG1", "ERBB2", "CDKN1A", "TSC2", "MTOR", 
+               "FGFR3", "RICTOR", "PIK3CA")
+path.hits <- sum(cpdb.hits %in% val.snindels.clean$Hugo_Symbol)
+all.hits <- sum(all.genes %in% val.snindels.clean$Hugo_Symbol) - path.hits
+
+## set up matrix
+permuted <- matrix(NA, length(all.genes), 2)
+colnames(permuted) <- c("pathway", "score")
+
+## defines categories
+permuted[,1] <- rep(c(1,0), c(length(cpdb.hits), length(all.genes) - length(cpdb.hits)))
+
+## defines baseline categories
+permuted[,2] <- rep(c(1,0,1,0), c(path.hits, length(cpdb.hits) - path.hits, all.hits, length(all.genes) - length(cpdb.hits) - all.hits))
+
+all.means <- c()
+
+for (i in 1:10000){
+    vals <- sample(permuted[,2], nrow(permuted), replace = T)
+    mean.diff <- mean(vals[permuted[,1] == 1]) - mean(vals[permuted[,1] == 0])
+    all.means <- c(all.means, mean.diff)
+}
+
+hist(all.means)
