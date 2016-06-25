@@ -95,7 +95,7 @@ write.csv(total.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_m
 disc.snindels.2 <- disc.snindels[disc.snindels$i_tumor_f > .1, ]
 disc.snindels.2 <- PerSampleMaf(disc.snindels.2, "Hugo_Symbol")
 disc.snindels.2 <- ReccurentMaf(disc.snindels.2, "Hugo_Symbol")
-write.csv(disc.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_mutated_at_least_twice_hg.csv", row.names = F)
+write.csv(disc.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_mutated_at_least_twice_disc.csv", row.names = F)
 
 
 
@@ -335,4 +335,33 @@ for (i in 1:length(unique.cancers)){
     temp <- table(pancan.filtered[pancan.filtered$ttype == unique.cancers[i], ]$patient)
     write.csv(temp, paste(output.folder, paste(unique.cancers[i], "csv", sep = "."), sep = "_"))
 }
+
+
+## calculate mean difference from expected
+
+targets <- master.table[(master.table$Analsysis.Set. == 1) & master.table$NF2.snp.indel == 1,"Pair.Name"]
+targets <- targets[!is.na(targets)]
+output <- matrix(NA, length(targets), 3)
+rownames(output) <- targets
+colnames(output) <- c("NF2_AF", "Avg_AF", "T_Stat")
+for (i in 1:length(targets)){
+
+    muts <- FilterMaf(total.snindels, targets[i], "Tumor_Sample_Barcode")
+    nf2.af <- muts[muts$Hugo_Symbol == "NF2", "i_tumor_f"]
+    expected.af <- nf2.af / 2
+    muts <- muts[muts$Hugo_Symbol != "NF2", ]
+    all.af <- muts$i_tumor_f
+    for (j in 1:length(all.af)){
+        if (all.af[j] > .7*nf2.af){
+            all.af[j] <- all.af[j] / 2
+        } 
+    }
+    output[i, ] <- c(nf2.af, mean(all.af), TestStatistic(all.af, expected.af))
+}
+
+output
+
+
+
+
 
