@@ -118,3 +118,17 @@ points(mut.rate, power.med.3, pch = 16)
 legend("topleft", c("Power for at least 3 mutations", "Power for at least 4 mutations", 
                     "At least 3 mutations, 10 bad samples", 
                     "At least 4 mutations, 10 bad samples"), pch =c(0, 15, 1, 16))
+
+
+## disrupted vs non-disrupted in validation
+
+validation.data <- read.delim("C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/data/R_input.txt", stringsAsFactors = F)
+validation.data <- validation.data[validation.data$Oncopanel. == 1, ]
+validation.data <- validation.data[validation.data$Pathology == "Pituitary Adenoma", ]
+pituitary.comut <- validation.data[, c("pathology.anatomic","disruption", "Chr.1.Loss")]
+write.csv(pituitary.comut, "C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Figs/fig1.validation.csv", row.names = F)
+pituitary.comut <- pituitary.comut[order(pituitary.comut$pathology.anatomic, pituitary.comut$disruption, pituitary.comut$Chr.1.Loss), ]
+
+table(validation.data$pathology.anatomic == "Null", validation.data$disruption)
+table(validation.data$Atypical. == 1, validation.data$disruption)
+
