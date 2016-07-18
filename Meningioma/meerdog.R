@@ -6,6 +6,18 @@ vntr <- readRDS("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/gr.repeatMasker.rds")
 ## read in regions with transposable elements
 te <- readRDS("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/tubio_l1.rds")
 
+
+folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Rearrangements")
+events.matrix <- NULL
+for (i in 1:length(list.files(folder))){
+    temp <- read.csv(paste(folder, list.files(folder)[i], sep = "/"),
+                     stringsAsFactors = F)
+    temp[, 28] <-  strsplit(list.files(folder)[i], ".csv")[[1]]
+    colnames(temp)[28] <- "Sample"
+    colnames(temp)[29] <- "vcf.info"
+    events.matrix <- rbind(events.matrix, temp)    
+}
+
 for (i in 1:nrow(events.matrix)){
     
     # sets variables for current rearrangement
