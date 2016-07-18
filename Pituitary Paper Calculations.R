@@ -132,3 +132,15 @@ pituitary.comut <- pituitary.comut[order(pituitary.comut$pathology.anatomic, pit
 table(validation.data$pathology.anatomic == "Null", validation.data$disruption)
 table(validation.data$Atypical. == 1, validation.data$disruption)
 
+
+
+## Reviews
+## RNA expression
+
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GDS4275_full.soft", skip = 100)
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GDS4859_full.soft", skip = 69, nrows = 200)
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE51618_family.soft", skip = 90, nrows = 200)
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE22812_family.soft", skip = 108, nrows = 200)
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE22812_series_matrix.txt", skip = 71, nrows = 200)
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE22812_family.xml.tar", skip = 1, nrows = 200)
+rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE46311_family.soft", skip = 116, nrows = 200)
