@@ -45,9 +45,13 @@ for (i in 1:length(list.files(discovery.snps.folder))){
 }    
 
 discovery.coding.snps <- FilterMaf(discovery.snps, snp.variants, "Variant_Classification")
+discovery.duplicate.snps <-  FilterMaf(discovery.snps, c(snp.variants, "Silent"), "Variant_Classification")
 
 
 mini.disc.snps <- discovery.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position", 
+                                            "COSMIC_total_alterations_in_gene")]
+
+mini.disc.dup.snps <- discovery.duplicate.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position", 
                                             "COSMIC_total_alterations_in_gene")]
 
 ## snowman
@@ -61,8 +65,18 @@ mini.disc.indels <- discovery.coding.indels[, c("Hugo_Symbol", "i_tumor_f", "Tum
                                                 "COSMIC_total_alterations_in_gene")]
 
 disc.snindels.all <- rbind(mini.disc.indels, mini.disc.snps)
-orphans <- FilterMaf(disc.snindels, c("MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
-disc.snindels <- FilterMaf(disc.snindels, hg.list[!is.na(hg.list)], "Tumor_Sample_Barcode")
+disc.snindels.duplicates <- rbind(mini.disc.indels, mini.disc.dup.snps)
+
+## Remove mitochondrial associated genes
+mt.bool <- substr(disc.snindels.all$Hugo_Symbol, 1, 3) == "MT-"
+disc.snindels.all <- disc.snindels.all[!mt.bool, ]
+
+mt.bool <- substr(disc.snindels.duplicates$Hugo_Symbol, 1, 3) == "MT-"
+disc.snindels.duplicates <- disc.snindels.duplicates[!mt.bool, ]
+
+
+orphans <- FilterMaf(disc.snindels.all, c("MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
+disc.snindels <- FilterMaf(disc.snindels.all, hg.list[!is.na(hg.list)], "Tumor_Sample_Barcode")
 disc.snindels.clean <- disc.snindels[disc.snindels$i_tumor_f > .0999, ]
 disc.snindels.clean <- PerSampleMaf(disc.snindels.clean, "Hugo_Symbol")
 
