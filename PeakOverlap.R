@@ -1,11 +1,11 @@
 ## Mutations analysis for paper
 
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
 
 ## Generate separate mafs for each sample to be analzyed
 
-methylation.folder <- ("C:/Users/Noah/OneDrive/Work/mimi/Methylation Data/homer.calls/prepost")
+methylation.folder <- ("C:/Users/Noah/OneDrive/Work/mimi/Methylation Data/homer.calls/inputco")
 methylation.names <- NULL
 
 ## read in all data, add unique identifier, keep track of sample names
@@ -75,3 +75,32 @@ for (k in 1:nrow(aggregated.calls)){
     total <- sum(as.numeric(aggregated.calls[k, 4:15]))
     aggregated.calls[k, 16] <- total
 }
+
+write.csv(aggregated.calls, "C:/Users/Noah/OneDrive/Work/Mimi/Methylation Data/pre_post_calls.csv", row.names = F)
+aggregated.calls <- read.csv("C:/Users/Noah/OneDrive/Work/Mimi/Methylation Data/pre_post_calls.csv", stringsAsFactors = F)
+
+## Permutations testing. 
+total.hits <- c()
+for (i in 1:1000){
+    permuted.matrix <- aggregated.calls
+    for (j in 4:(ncol(permuted.matrix) - 1)){
+        permuted.matrix[, j] <- sample(permuted.matrix[, j], nrow(permuted.matrix), 
+                                       replace = T)
+    }
+    
+    permuted.matrix[, 16] <- rowSums(permuted.matrix[, 4:15])
+    
+    pass <- sum(permuted.matrix[, 16] > 5)
+    total.hits <- c(total.hits, pass)
+}
+hist(total.hits, xlab = "# of permutations", main = "Histogram of permutations testing")
+table(aggregated.calls$V16)
+
+ggplot(aggregated.calls, aes(x = V16)) + geom_histogram() +scale_y_log10() +scale_x_continuous(limits = c(0, 10), breaks = 1:10)
+ggplot(aggregated.calls, aes(x = V16)) + geom_histogram(binwidth = 1, center = 0) +scale_y_log10() +scale_x_continuous(limits = c(0, 10), breaks = 1:10)
+ggplot(aggregated.calls, aes(x = V16)) + geom_histogram() + scale_y_log10() +scale_x_continuous(limits = c(0, 10), breaks = 1:10)
+
+
+
+
+
