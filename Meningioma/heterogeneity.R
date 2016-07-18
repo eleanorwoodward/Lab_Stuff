@@ -2,54 +2,63 @@
 
 source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
 
+copy.number.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/all_hg.7.15/broad_values_by_arm.txt", stringsAsFactors = F)
+primary.tumors <- c("tum1")
+recurrent.tumors <- c("dd")
+
 
 ## Generate separate mafs for each sample to be analzyed
-men97 <- FilterMaf(disc.snindels, "MEN0097-P", "Tumor_Sample_Barcode")
-men971 <- FilterMaf(disc.snindels, "MEN0097-P1", "Tumor_Sample_Barcode")
-men972 <- FilterMaf(disc.snindels, "MEN0097-P2", "Tumor_Sample_Barcode")
-men973 <- FilterMaf(disc.snindels, "MEN0097-P3", "Tumor_Sample_Barcode")
 
-input.list <- list(men97, men971, men972, men973)
 
-men97.het.comp <- NULL
+input.list <- list(c("MEN0030.TumorA", "MEN0030.TumorB"), c("MEN0042.TumorA", "MEN0042.TumorB", "MEN0042.TumorC"), 
+                   c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorB", "MEN0048.TumorC", "MEN0048.TumorD"),
+                   c("MEN0093.TumorA", "MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
+                   c("MEN0101.Tumor", "MEN0101.TumorB"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"))
+
+combined.mutations <- NULL
 
 ## loops through list of mafs, annotating master maf with presence or absence for each unique mutation
-## for each sample maf that is given in input list
-for (i in 1:length(input.list)){
-    print("i is", i)
+for (i in 1:length(input.list[[5]])){
+    ## sets up relevant info for each sample
+    sample.name <- input.list[[5]][i]
+    pair.name <- master.table[master.table$Tumor.Name == sample.name, ]$Pair.Name
+    mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
     if (i == 1){
         ## sets up master list with all contents of first maf
-        men97.het.comp <- input.list[[i]][, c(1, 5)]
-        men97.het.comp[, 3] <- 1
-        colnames(men97.het.comp)[3] <- "Men97"
-        rownames(men97.het.comp) <- 1:nrow(men97.het.comp)
+        combined.mutations <- mutations[, c(1, 5)]
+        combined.mutations[, 3] <- 1
+        colnames(combined.mutations)[3] <- sample.name
+        rownames(combined.mutations) <- 1:nrow(combined.mutations)
     }else{
         # populate column with zero as default, to be modified if any of the previously added mutations are found in current sample
-        men97.het.comp[, i + 2] <- 0
-        colnames(men97.het.comp)[i + 2] <- input.list[[i]][1,3]
+        combined.mutations[, i + 2] <- 0
+        colnames(combined.mutations)[i + 2] <- sample.name
         ## Loops through sample maf, checking each individual row
-        for (j in 1:nrow(input.list[[i]])){
-            tmp <- input.list[[i]]
-            matches.idx <- men97.het.comp$Hugo_Symbol == tmp[j, 1]
+        for (j in 1:nrow(mutations)){
+            tmp <- mutations
+            matches.idx <- combined.mutations$Hugo_Symbol == tmp[j, 1]
             ## checks if gene found anywhere
             if (!is.na(matches.idx) & sum(matches.idx) > 0){
-                matches <- men97.het.comp[matches.idx, ]
+                matches <- combined.mutations[matches.idx, ]
                 hits <- which(matches$Start_position %in% tmp[j,5])
                 ## checks if gene hits have same start position
                 if (length(hits) > 0){
                     original.idx <- as.numeric(rownames(matches)[hits[1]])
-                    men97.het.comp[original.idx, i +2] <- 1
+                    combined.mutations[original.idx, i +2] <- 1
                 ## if not, adds it to master list    
                 }else{
-                    men97.het.comp <- rbind(men97.het.comp, c(tmp[j, 1], tmp[j, 5], rep(0, i -1), 1))
+                    combined.mutations <- rbind(combined.mutations, c(tmp[j, 1], tmp[j, 5], rep(0, i -1), 1))
                 }
                     
             }else{
-                men97.het.comp <- rbind(men97.het.comp, c(tmp[j, 1], tmp[j, 5], rep(0, i -1), 1))
+                combined.mutations <- rbind(combined.mutations, c(tmp[j, 1], tmp[j, 5], rep(0, i -1), 1))
             }
         }
     }
 }
 
-men97.het.comp <- men97.het.comp[order(men97.het.comp$Men97, men97.het.comp$'MEN0097-P1',men97.het.comp$'MEN0097-P2', 
-                                       men97.het.comp$'MEN0097-P3', decreasing = T), ]
+combined.mutations <- cbind(combined.mutations, rowSums(data.matrix(combined.mutations[, -(1:2)])))
+
+combined.mutations <- combined.mutations[order(combined.mutations[, 3], combined.mutations[, 4], combined.mutations[, 5], combined.mutations[, 6], decreasing = T), ]
+
+combined.mutations <- combined.mutations[combined.mutations$`rowSums(data.matrix(combined.mutations[, -(1:2)]))` != 1, ]
