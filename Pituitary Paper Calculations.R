@@ -144,3 +144,95 @@ rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GS
 rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE22812_series_matrix.txt", skip = 71, nrows = 200)
 rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE22812_family.xml.tar", skip = 1, nrows = 200)
 rna.data <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/RNA/GSE46311_family.soft", skip = 116, nrows = 200)
+
+
+roseta <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/GSE22812/downloaded_key.txt", stringsAsFactors = F)
+upload.file <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/GSE22812/CodeLink_Human_Whole_Genome.chip.txt", stringsAsFactors = F)
+
+
+for (i in 1:nrow(upload.file)){
+    oldval <- upload.file$Probe.Set.ID[i]
+    upload.file[i, 1] <- roseta[roseta$PROBE_NAME == oldval, 1]
+}
+
+sample1 <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/ComBat/GDS4275null.collapsed.gct",
+                      stringsAsFactors = F, skip = 2)
+
+sample2 <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/ComBat/GDS4859null.collapsed.gct",
+                      stringsAsFactors = F, skip = 2)
+
+sample3 <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/ComBat/GSE22812null.collapsed.gct",
+                      stringsAsFactors = F, skip = 2)
+
+sample4 <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/ComBat/GSE51618null.collapsed.gct",
+                      stringsAsFactors = F, skip = 2)
+
+## remove samples that have all NAs
+sample3 <- sample3[!is.na(rowSums(sample3[, -(1:2)])), ]
+sample4 <- sample4[!(rowSums(sample4[, -(1:2)], na.rm = T) == 0), ]
+sample1 <- sample1[!(rowSums(sample1[, -(1:2)], na.rm = T) == 0), ]
+
+sample.list <- list(sample4, sample3, sample1)
+combat.ready <- NA
+
+for (i in 1:length(sample.list)){
+    print(paste("analyzing sample # ", i))
+    temp <- sample.list[[i]]
+    if (i == 1){
+        ## sets up master list with all calls in first maf, chr, start, end, and presence or absence
+        combat.ready <- temp
+        combat.ready <- combat.ready[combat.ready$Name %in% sample3$Name, ]
+        combat.ready <- combat.ready[combat.ready$Name %in% sample1$Name, ]
+    }else{
+        # populate column with zero as default, to be modified if any of the previously added mutations are found in current sample
+        temp <- temp[temp$Name %in% sample4$Name, ]
+        combat.ready[, (ncol(combat.ready) + 1):(ncol(combat.ready) + ncol(temp) - 2)] <- NA
+        current.empties <- (ncol(combat.ready) - (ncol(temp) - 3)):ncol(combat.ready)
+        
+        ## Loops through sample maf, checking each individual row
+        bad.boys <- c()
+        for (j in 1:nrow(temp)){
+            if(j %% 100 == 0){
+                print(paste("Analyzing row ", j, " sample ", i))
+            }
+           
+            ## checks if region is already in list
+            hits <- combat.ready$Name == temp$Name[j] 
+            if (sum(hits) > 0){
+                ## if present, add 1 in column of all overlaps
+                row <- which(hits)
+                combat.ready[row, current.empties] <- temp[j, -(1:2)]
+            }else{
+                ## if not, do nothing, as combat will fail
+            }
+            
+        }
+        colnames(combat.ready)[current.empties] <- colnames(temp)[-(1:2)]
+    }
+}
+
+## redo combat values
+combat.ready <- combat.ready[rowSums(combat.ready[, -(1:2)]) > - 2, ]
+combat.ready[, 1] <- 1:4069
+
+
+for (i in 1:46){
+    if (i < 10){
+        testing[, i + 2] <- rnorm(5000, 10, 1.5)
+    }else if (i < 20){
+        testing[, i + 2] <- rnorm(5000, 7, 2.5)
+    }else if (i < 30){
+        testing[, i + 2] <- rnorm(5000, 12, 0.5)
+    }else if (i < 40){
+        testing[, i + 2] <- rnorm(5000, 2, 4.5)
+    }else{
+        testing[, i + 2] <- rnorm(5000, 6, 6)
+    }
+}
+write.table(testing, "C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/ComBat/testing.tsv", row.names = F,
+            quote = F, sep = "\t")
+
+
+write.table(combat.ready, "C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/ComBat/combat.ready.tsv", row.names = F,
+            quote = F, sep = "\t")
+
