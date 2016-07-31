@@ -7,14 +7,21 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//ESPFi
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//PoNFilter.R")
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//CallCompare.R")
 
-# asource("http://www.bioconductor.org/biocLite.R")
+# source("http://www.bioconductor.org/biocLite.R")
 # biocLite(c("rtracklayer", "AnnotationHub", "Rsamtools"))
-
-## Nice packages
-library(grDevices)
-library(RColorBrewer)
-library(dplyr)
-library(rtracklayer)
+# install.packages("dplyr")
+# install.packages("ggplot2")
+# install.packages("devtools")
+# install.packages("R.utils")
+# 
+# ## Nice packages
+# library(grDevices)
+# library(RColorBrewer)
+# library(dplyr)
+# library(rtracklayer)
+# library(ggplot2)
+# library(curl)
+# library(R.utils)
 
 FilterMaf <- function(maf, list, column.name, keep = TRUE){
   # Takes a maf, and returns a maf with only those rows who have a value in given column that matches an entry in the list. 
