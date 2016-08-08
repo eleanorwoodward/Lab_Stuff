@@ -175,7 +175,7 @@ sample1 <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Revisio
 sample2 <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Revision/ComBat/GDS4859null.collapsed.gct",
                       stringsAsFactors = F, skip = 2)
 
-sample3 <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Revision/ComBat/GSE22812null.collapsed.gct",
+sample3 <- read.delim("C:/Users/Noah/hubiC/Pituitary Tumor Paper/Revision/ComBat/GSE22812null.collapsed.gct",
                       stringsAsFactors = F, skip = 2)
 
 sample.expressed.3 <- read.delim("C:/Users/Noah/hubiC/Pituitary Tumor Paper/Revision/GSE22812/GSE22812null.fixed.collapsed.gct",
@@ -258,42 +258,6 @@ expression.combat <- read.delim("C:/Users/Noah/hubiC/Pituitary Tumor Paper/Revis
 
 
 ## Copy number data
-SNP6.key <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/SNP6/GSE22615_family.soft", stringsAsFactors = F, 
-                   nrows = 200, comment.char = "!", skip = 99)
-
-SNP6 <- read.delim("C:/Users/Noah/Dropbox/Work/Pits/ClinCanRes resubmission/Q3/Data/SNP6/GSE22615_series_matrix.txt", stringsAsFactors = F, 
-                comment.char = "!")
-
-example.cell <- read.delim("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Revision/100H_primary_GBM_56.CEL", stringsAsFactors = F, nrow = 400,
-                           skip =100)
-
-biocLite("crlmm")
-source("https://bioconductor.org/biocLite.R")
-library(oligoClasses)
-library(crlmm)
-library(ff)
-if(!exists("useCache")) useCache <- TRUE
-if(useCache) library
-cdfName <- "genomewidesnp6"
-pathToCels <- "C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Revision/SNP6/"
-outdir <- paste("C:/Users/Noah/OneDrive/Work/Pituitary Tumor Paper/Revision/SNP6/", getRversion(), "/affy_vignette", sep="")
-dir.create(outdir, recursive=TRUE, showWarnings=FALSE)
-ldPath(outdir)
-ocProbesets(100000)
-ocSamples(200)
-celFiles <- list.celfiles(pathToCels, full.names=TRUE, pattern=".CEL")[1:10]
-## include if errors celFiles <- celFiles[substr(basename(celFiles), 13, 13) %in% c("C", "Y")]
-if(exists("file.index")){
-    celFiles <- celFiles[file.index]
-}
-cnSet <- constructAffyCNSet(celFiles, cdfName="genomewidesnp6", genome="hg19")
-cnrmaAffy(cnSet)
-validCEL(celFiles)
-snprmaAffy(cnSet)
-genotypeAffy(cnSet, gender=NULL)
-table(c("male", "female")[cnSet$gender[]])
-
-
 
 x <- read.delim("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/all_genes_hg38.txt")
 bands <- read.delim("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/c1.all.v5.1.symbols.gmt", header = FALSE, stringsAsFactors = F)
@@ -484,6 +448,10 @@ CIN70[CIN70 %in% expression.combat[, 1]]
 
 expression.zed <- expression
 
+expression.uri <- read.delim("C:/Users/Noah/hubiC/Pituitary Tumor Paper/Revision/GSE46311_expression_for_CIN_analysis.txt", stringsAsFactors = F)
+
+expression.uri.zed <- expression.uri
+
 for (i in 1:nrow(expression.zed)){
     avg <- rowSums(expression.zed[i, -(1:2)]) / 13
     expression.zed[i, -(1:2)] <- expression.zed[i, -(1:2)] - avg
@@ -491,14 +459,45 @@ for (i in 1:nrow(expression.zed)){
     expression.zed[i, -(1:2)] <- expression.zed[i, -(1:2)] / stdv
 }
 
-disrupted <- c("sample1", "sample2", "sample3", "sample4", "sample5", "sample10", "sample13")
+for (i in 1:nrow(expression.uri.zed)){
+    avg <- rowSums(expression.uri.zed[i, -(1:4)]) / 16
+    expression.uri.zed[i, -(1:4)] <- expression.uri.zed[i, -(1:4)] - avg
+    stdv <- sd(as.numeric(expression.uri.zed[i, -(1:4)]))
+    expression.uri.zed[i, -(1:4)] <- expression.uri.zed[i, -(1:4)] / stdv
+}
+
+disrupted <- c("sample1", "sample2", "sample3", "sample4", "sample5", "sample9", "sample10", "sample13")
+disrupted.uri <- colnames(expression.uri)[-(1:4)][c(F,T,F,F,T,F,T,T,T,T,T,F,T,T,F,F)]
+nondisrupted.uri <- colnames(expression.uri)[-(1:4)][!c(F,T,F,F,T,F,T,T,T,T,T,F,T,T,F,F)]
+
 
 cin.score <- colSums(expression.zed[expression.zed$name %in% CIN70, -(1:2)])
+cin.score.uri <- colSums(expression.uri.zed[expression.uri.zed$Gene.symbol %in% CIN70, -(1:4)])
+cin.score.uri[nondisrupted.uri]
 
+## original dataset
 cin.score[(names(cin.score) %in% disrupted)]
 t.test(as.numeric(cin.score[(names(cin.score) %in% disrupted)]), as.numeric(cin.score[!(names(cin.score) %in% disrupted)]))
 wilcox.test(as.numeric(cin.score[(names(cin.score) %in% disrupted)]), as.numeric(cin.score[!(names(cin.score) %in% disrupted)]))
 
+## new dataset
+t.test(as.numeric(cin.score.uri[disrupted.uri]), as.numeric(cin.score.uri[nondisrupted.uri]))
+wilcox.test(as.numeric(cin.score.uri[disrupted.uri]), as.numeric(cin.score.uri[nondisrupted.uri]))
+
+total.disrupted <- c(as.numeric(cin.score.uri[disrupted.uri]), as.numeric(cin.score[(names(cin.score) %in% disrupted)]))
+total.quiet <- c(as.numeric(cin.score.uri[nondisrupted.uri]), as.numeric(cin.score[!(names(cin.score) %in% disrupted)]))
+
+
+## combined
+t.test(c(as.numeric(cin.score.uri[disrupted.uri]), as.numeric(cin.score[(names(cin.score) %in% disrupted)])),
+      c(as.numeric(cin.score.uri[nondisrupted.uri]), as.numeric(cin.score[!(names(cin.score) %in% disrupted)])))
+wilcox.test(c(as.numeric(cin.score.uri[disrupted.uri]), as.numeric(cin.score[(names(cin.score) %in% disrupted)])),
+            c(as.numeric(cin.score.uri[nondisrupted.uri]), as.numeric(cin.score[!(names(cin.score) %in% disrupted)])))
+
+ggdf <- as.data.frame(matrix(c(total.quiet, total.disrupted, rep(0, length(total.quiet)), rep(1, length(total.disrupted))), 29, 2))
+colnames(ggdf) <- c("Score", "Functional")
+
+ggplot(ggdf, aes(x = Functional, y = Score)) + geom_point()
 
 ## copy number data
 copy.number.matrix <- matrix(0, 44, 13)
@@ -628,3 +627,60 @@ cin.score <- colSums(combat.zed[combat.zed$Name %in% CIN70, -c(1,48)])
 
 ## calculating r squared
 ## average genes together for affected vs unaffected group, 
+
+# consructs gene matrices for z-scored version
+expression.zed.11p <- expression.zed[expression.zed$name %in% genes.11p, ]
+
+expression.zed.3p <- expression.zed[expression.zed$name %in% genes.3p, ]
+
+expression.zed.5p <- expression.zed[expression.zed$name %in% genes.5p, ]
+
+expression.zed.8q <- expression.zed[expression.zed$name %in% genes.8q, ]
+
+expression.zed.1q <- expression.zed[expression.zed$name %in% genes.1q, ]
+
+expression.zed.9p <- expression.zed[expression.zed$name %in% genes.9p, ]
+
+expression.zed.9q <- expression.zed[expression.zed$name %in% genes.9q, ]
+
+expression.zed.7p <- expression.zed[expression.zed$name %in% genes.7p, ]
+
+expression.zed.15q <- expression.zed[expression.zed$name %in% genes.15q, ]
+
+## creats x and y value for regression; codes disrupted as whichever is greater in value
+
+expression.values <- c()
+disrupted.status <- c()
+
+expression.values <- c(expression.values, rowSums(expression.zed.11p[, c(3:7)]), rowSums(expression.zed.11p[, c(8:15)]))
+disrupted.status <- c(disrupted.status, rep(0, nrow(expression.zed.11p)), rep(1, nrow(expression.zed.11p)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.3p[, c(3,5,12)]), rowSums(expression.zed.3p[, c(4,6:11,13:15)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.3p)), rep(0, nrow(expression.zed.3p)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.5p[, (c(1,4,10) + 2)]), rowSums(expression.zed.5p[, -(c(-1, 0,1,4,10) + 2)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.5p)), rep(0, nrow(expression.zed.5p)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.8q[, (c(1,3,5,11) + 2)]), rowSums(expression.zed.8q[, -(c(-1, 0,1,3,5,11) + 2)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.8q)), rep(0, nrow(expression.zed.8q)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.1q[, (c(3,4,5) + 2)]), rowSums(expression.zed.1q[, -(c(-1, 0,3,4,5) + 2)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.1q)), rep(0, nrow(expression.zed.1q)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.9p[, (c(3,9,10,12) + 2)]), rowSums(expression.zed.9p[, -(c(-1,0, 3,9,10,12) + 2)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.9p)), rep(0, nrow(expression.zed.9p)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.9q[, (c(3,9,10,12) + 2)]), rowSums(expression.zed.9q[, -(c(-1,0, 3,9,10,12) + 2)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.9q)), rep(0, nrow(expression.zed.9q)))
+
+expression.values <- c(expression.values, rowSums(expression.zed.7p[, (c(9,10,13) + 2)]), rowSums(expression.zed.7p[, -(c(-1,0,9,10,13) + 2)]))
+disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.7p)), rep(0, nrow(expression.zed.7p)))
+
+
+## fit linear model on expression values with disrupted or not as dependent variable
+
+trial.model <- lm(expression.values ~ disrupted.status)
+summary(trial.model)
+
+
+
