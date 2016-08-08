@@ -34,12 +34,14 @@ for (i in 1:nrow(cases)){
 
 colnames(by.gene)[10:13] <- c("gene", "amino.acid", "protein", "rest")
 
+## gets total number of occurences for each gene
 for (i in 1:nrow(by.gene)){
     count = sum(by.gene[,10 ] == by.gene[i, 10])
     by.gene[i, 14] <- count
 }
 write.table(by.gene, "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/by_gene.txt", row.names = F, quote = F, sep = "\t")
 
+by.gene <- read.delim("C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/by_gene.txt", stringsAsFactors = F)
 
 ## Analysis
 

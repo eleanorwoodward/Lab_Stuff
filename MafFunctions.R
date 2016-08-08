@@ -14,14 +14,15 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//CallC
 # install.packages("devtools")
 # install.packages("R.utils")
 # 
-# ## Nice packages
-# library(grDevices)
-# library(RColorBrewer)
-# library(dplyr)
-# library(rtracklayer)
-# library(ggplot2)
-# library(curl)
-# library(R.utils)
+## Nice packages
+library(grDevices)
+library(RColorBrewer)
+library(dplyr)
+library(rtracklayer)
+library(ggplot2)
+library(curl)
+library(R.utils)
+library("plyr")
 
 FilterMaf <- function(maf, list, column.name, keep = TRUE){
   # Takes a maf, and returns a maf with only those rows who have a value in given column that matches an entry in the list. 
