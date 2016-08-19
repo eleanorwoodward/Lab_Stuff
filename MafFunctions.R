@@ -13,7 +13,9 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//CallC
 # install.packages("ggplot2")
 # install.packages("devtools")
 # install.packages("R.utils")
-# 
+# install.packages("NMF")
+# install.packages("kohonen")
+
 ## Nice packages
 library(grDevices)
 library(RColorBrewer)
@@ -23,6 +25,9 @@ library(ggplot2)
 library(curl)
 library(R.utils)
 library("plyr")
+library(NMF)
+library(Biobase)
+library(kohonen)
 
 FilterMaf <- function(maf, list, column.name, keep = TRUE){
   # Takes a maf, and returns a maf with only those rows who have a value in given column that matches an entry in the list. 

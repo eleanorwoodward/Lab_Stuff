@@ -4,3 +4,5 @@
 .RDataTmp1
 .RDataTmp2
 .RDataTmp
+.RDataTmp3
+tempfile.txt
