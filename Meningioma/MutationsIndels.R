@@ -1,6 +1,6 @@
 ## Mutations analysis for paper
 
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
 unique(discovery.coding.snps[discovery.coding.snps$Hugo_Symbol == "NF2", ]$Tumor_Sample_Barcode)
 
@@ -202,20 +202,24 @@ write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi
 
 ## p values for major mutation classes
 fisher.test(table(massive.table$chr22.loss, massive.table$TKAS))
-fisher.test(table(massive.table$NF2.snp.indel.rearrangement, massive.table$NF2.snp.indel.rearrangement))
+fisher.test(table(massive.table$NF2.snp.indel.rearrangement, massive.table$TKAS))
 fisher.test(table(massive.table$Simple.Grade, massive.table$chr22.loss))
 fisher.test(table(massive.table$Simple.Grade, massive.table$TKAS))
 fisher.test(table(massive.table$Simple.Grade, massive.table$SMO))
 fisher.test(table(massive.table$Simple.Grade, massive.table$AKT1))
 fisher.test(table(massive.table$Simple.Grade, massive.table$KLF4))
 fisher.test(table(massive.table$Simple.Grade, massive.table$TRAF7))
+nrow(massive.table[massive.table$Simple.Grade == 2 & massive.table$KLF4 == 1, ])
+
+## comparison of non-nf2 driver events controlling for NF2
 fisher.test(table(massive.table[massive.table$chr22.loss == F & massive.table$NF2.snp.indel.rearrangement == F, ]$Simple.Grade, 
                   massive.table[massive.table$chr22.loss == F & massive.table$NF2.snp.indel.rearrangement == F, ]$TKAS))
 
-
+## mutual exclusivity of NF2 and non-nf2 alterations, even among samples with chr 22 loss
 fisher.test(table(massive.table[massive.table$chr22.loss == T,]$NF2.snp.indel.rearrangement, massive.table[massive.table$chr22.loss == T, ]$TKAS))
 
-fisher.test(table(massive.table[massive.table$Cohort == "clark", ]$Simple.Grade, massive.table[massive.table$Cohort == "clark", ]$SMO))
+## mutual exclusivity of TKAS and NF2 in high grades
+fisher.test(table(massive.table[massive.table$Simple.Grade == 2, ]$chr22.loss, massive.table[massive.table$Simple.Grade == 2, ]$TKAS))
 
 # p value for difference in NF2 inactivation rates
 

@@ -1,10 +1,17 @@
 ## Mutations analysis for paper
 
-source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
+source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
-copy.number.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/all_hg.7.15/broad_values_by_arm.txt", stringsAsFactors = F)
-primary.tumors <- c("tum1")
-recurrent.tumors <- c("dd")
+copy.number.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/all_hg.7.15/broad_values_by_arm_updated.txt", stringsAsFactors = F)
+copy.number.binary <- copy.number.calls
+for(i in 2:ncol(copy.number.calls)){
+    for(j in 1:nrow(copy.number.calls)){
+        if(copy.number.calls[j,i] != 0){
+            copy.number.binary[j,i] <- 1
+        }
+    }
+}
+
 
 
 ## Generate separate mafs for each sample to be analzyed
@@ -13,52 +20,152 @@ recurrent.tumors <- c("dd")
 input.list <- list(c("MEN0030.TumorA", "MEN0030.TumorB"), c("MEN0042.TumorA", "MEN0042.TumorB", "MEN0042.TumorC"), 
                    c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorB", "MEN0048.TumorC", "MEN0048.TumorD"),
                    c("MEN0093.TumorA", "MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
-                   c("MEN0101.Tumor", "MEN0101.TumorB"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"))
+                   c("MEN0101.Tumor", "MEN0101.TumorA"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"))
 
-combined.mutations <- NULL
+primary.list <- c(1, 1, 1, 1,2,1,1,1,1,1)
 
-## loops through list of mafs, annotating master maf with presence or absence for each unique mutation
-for (i in 1:length(input.list[[5]])){
-    ## sets up relevant info for each sample
-    sample.name <- input.list[[5]][i]
-    pair.name <- master.table[master.table$Tumor.Name == sample.name, ]$Pair.Name
-    mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
-    if (i == 1){
-        ## sets up master list with all contents of first maf
-        combined.mutations <- mutations[, c(1, 5)]
-        combined.mutations[, 3] <- 1
-        colnames(combined.mutations)[3] <- sample.name
-        rownames(combined.mutations) <- 1:nrow(combined.mutations)
-    }else{
-        # populate column with zero as default, to be modified if any of the previously added mutations are found in current sample
-        combined.mutations[, i + 2] <- 0
-        colnames(combined.mutations)[i + 2] <- sample.name
-        ## Loops through sample maf, checking each individual row
-        for (j in 1:nrow(mutations)){
-            tmp <- mutations
-            matches.idx <- combined.mutations$Hugo_Symbol == tmp[j, 1]
-            ## checks if gene found anywhere
-            if (!is.na(matches.idx) & sum(matches.idx) > 0){
-                matches <- combined.mutations[matches.idx, ]
-                hits <- which(matches$Start_position %in% tmp[j,5])
-                ## checks if gene hits have same start position
-                if (length(hits) > 0){
-                    original.idx <- as.numeric(rownames(matches)[hits[1]])
-                    combined.mutations[original.idx, i +2] <- 1
-                ## if not, adds it to master list    
+private.muts <- c()
+ubiq.muts <- c()
+percent.muts <- c()
+private.scna <- 0
+ubiq.scna <- 0
+percent.scna <- c()
+
+for (h in 1:length(input.list)){
+    combined.mutations <- NULL
+    
+    ## loops through list of mafs, annotating master maf with presence or absence for each unique mutation
+    for (i in 1:length(input.list[[h]])){
+        ## sets up relevant info for each sample
+        sample.name <- input.list[[h]][i]
+        pair.name <- master.table[master.table$Tumor.Name == sample.name, ]$Pair.Name
+        mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
+        if (i == 1){
+            ## sets up master list with all contents of first maf
+            combined.mutations <- mutations[, c(1,2,4,5)]
+            combined.mutations[, 5] <- 1
+            colnames(combined.mutations)[5] <- sample.name
+            rownames(combined.mutations) <- 1:nrow(combined.mutations)
+        }else{
+            # populate column with zero as default, to be modified if any of the previously added mutations are found in current sample
+            combined.mutations[, i + 4] <- 0
+            colnames(combined.mutations)[i + 4] <- sample.name
+            ## Loops through sample maf, checking each individual row
+            for (j in 1:nrow(mutations)){
+                tmp <- mutations
+                matches.idx <- combined.mutations$Hugo_Symbol == tmp[j, 1]
+                ## checks if gene found anywhere
+                if (!is.na(matches.idx[1]) & sum(matches.idx) > 0){
+                    matches <- combined.mutations[matches.idx, ]
+                    hits <- which(matches$Start_position %in% tmp[j,5])
+                    ## checks if gene hits have same start position
+                    if (length(hits) > 0){
+                        ## updates mutation count an average allelic fraction
+                        original.idx <- as.numeric(rownames(matches)[hits[1]])
+                        combined.mutations[original.idx, i +4] <- 1
+                        prev.samples <- sum(as.numeric((combined.mutations[original.idx, 5:(i+3)])))
+                        combined.mutations[original.idx, 2] <- as.numeric(combined.mutations[original.idx, 2]) * (prev.samples / (prev.samples + 1)) + 
+                            tmp[j,2] * 1/(prev.samples + 1)              
+                    ## if not, adds it to master list    
+                    }else{
+                        combined.mutations <- rbind(combined.mutations, c(tmp[j, 1], tmp[j, 2], tmp[j, 4], tmp[j, 5], rep(0, i -1), 1))
+                    }
+                        
                 }else{
-                    combined.mutations <- rbind(combined.mutations, c(tmp[j, 1], tmp[j, 5], rep(0, i -1), 1))
+                    combined.mutations <- rbind(combined.mutations, c(tmp[j, 1], tmp[j, 2], tmp[j, 4], tmp[j, 5], rep(0, i -1), 1))
                 }
-                    
-            }else{
-                combined.mutations <- rbind(combined.mutations, c(tmp[j, 1], tmp[j, 5], rep(0, i -1), 1))
             }
         }
     }
+    
+    combined.mutations <- cbind(combined.mutations, rowSums(data.matrix(combined.mutations[, -(1:4)])))
+    total.samples <- length(input.list[[h]])
+    private.muts <- c(private.muts, combined.mutations[combined.mutations[,total.samples + 5] == 1, ][,2])
+    ubiq.muts <- c(ubiq.muts, combined.mutations[combined.mutations[,total.samples + 5] == total.samples, ][,2])
+    percent.muts <- c(percent.muts, combined.mutations[, total.samples + 5] / total.samples)
+    
+    # scna.index <- colnames(copy.number.calls) %in% input.list[[h]]
+    # scna.matrix <- copy.number.binary[, scna.index]
+    # scna.matrix <- cbind(scna.matrix, rowSums(scna.matrix))
+    # scna.matrix <- scna.matrix[scna.matrix[, total.samples + 1] != 0, ]
+    # private.scna <- private.scna + sum(scna.matrix[, total.samples + 1] == 1)
+    # ubiq.scna <- ubiq.scna + sum(scna.matrix[, total.samples + 1] == total.samples)
+    # percent.scna <- c(percent.scna, scna.matrix[, total.samples + 1] / total.samples)
+    
+    combined.mutations <- combined.mutations[order(combined.mutations[, 5], combined.mutations[, 8], combined.mutations[, 7],combined.mutations[, 6], decreasing = T), ]
+
+    #combined.mutations <- combined.mutations[combined.mutations$`rowSums(data.matrix(combined.mutations[, -(1:2)]))` != 1, ]
+    write.table(combined.mutations, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0048_mutations.tsv", sep = "\t", row.names = F, quote = F)
 }
 
-combined.mutations <- cbind(combined.mutations, rowSums(data.matrix(combined.mutations[, -(1:2)])))
+## calculate percentages of mutation types
+length(private.muts) / length(percent.muts)
+length(ubiq.muts) / length(percent.muts)
+mean(percent.muts)
 
-combined.mutations <- combined.mutations[order(combined.mutations[, 3], combined.mutations[, 4], combined.mutations[, 5], combined.mutations[, 6], decreasing = T), ]
+private.scna /length(percent.scna)
+ubiq.scna / length(percent.scna)
+mean(percent.scna)
 
-combined.mutations <- combined.mutations[combined.mutations$`rowSums(data.matrix(combined.mutations[, -(1:2)]))` != 1, ]
+# calculate difference in allelic fractions
+t.test(as.numeric(private.muts), as.numeric(ubiq.muts))
+
+pair.mut.counts <- vector("list", length(input.list))
+pair.scna.counts <- vector("list", length(input.list))
+primary.counts <- c()
+primary.scna <- c()
+recurrent.counts <- c()
+recurrent.scna <- c()
+
+## summary calculations for section
+for (i in 1:length(input.list)){
+    sample.names <- input.list[[i]]
+    current.counts <- c()
+    current.scna.counts <- c()
+    for (j in 1:length(sample.names)){
+        current.name <- master.table[master.table$Tumor.Name == sample.names[j], ]$Pair.Name
+        muts <- nrow(FilterMaf(disc.snindels.duplicates, current.name,"Tumor_Sample_Barcode"))
+        current.counts <- c(current.counts, muts)
+        scnas <- sum(copy.number.calls[[sample.names[j]]] != 0)
+        current.scna.counts <- c(current.scna.counts, scnas)
+        if (primary.list[i] == j){
+            primary.counts <- c(primary.counts, muts)
+            primary.scna <- c(primary.scna, scnas)
+        }else{
+            recurrent.counts <- c(recurrent.counts, muts)
+            recurrent.scna <- c(recurrent.scna, scnas)
+            
+        }
+    }
+    pair.mut.counts[[i]] <- current.counts
+    pair.scna.counts[[i]] <- current.scna.counts
+}
+
+## compute sd of each list element mutations
+all.stdv <- c()
+for (i in 1:length(pair.mut.counts)){
+    stdv <- sd(pair.mut.counts[[i]])
+    all.stdv <- c(all.stdv, stdv / mean(pair.mut.counts[[i]]))
+}
+all.stdv
+
+mean(all.stdv)
+sd(unlist(pair.mut.counts)) / mean(unlist(pair.mut.counts))
+
+## same for copy number
+all.stdv <- c()
+for (i in 1:length(pair.scna.counts)){
+    stdv <- sd(pair.scna.counts[[i]])
+    all.stdv <- c(all.stdv, stdv / mean(pair.mut.counts[[i]]))
+}
+all.stdv
+
+mean(all.stdv)
+sd(unlist(pair.scna.counts)) / mean(unlist(pair.scna.counts))
+
+t.test(primary.counts, recurrent.counts)
+t.test(primary.scna, recurrent.scna)
+
+
+
+## look at tumors where recurrences were of diffrent grades
