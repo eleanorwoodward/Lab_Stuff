@@ -641,6 +641,7 @@ for (i in 1:length(new.names)){
 colnames(gene.expression.matrix) <- c("sample1-d", "sample2-d", "sample3-d", "sample4-d", "sample5-d", "sample6-q", "sample7-q",
                                   "sample8-m", "sample9-m", "sample10-d", "sample11-q", "sample12-q", "sample13-d" )
 
+## calculate distance matrix using signed (+,-) values
 signed.d.gene.matrix <- dist(t(gene.expression.matrix[, -(1:2)]))
 signed.clust.gene.matrix <- hclust(signed.d.gene.matrix)
 plot(signed.clust.gene.matrix, main = "gene exprssion clustering- signed")
@@ -650,7 +651,7 @@ unsigned.clust.gene.matrix <- hclust(unsigned.d.gene.matrix)
 plot(unsigned.clust.gene.matrix, main = "gene expression clustering-unsigned")
 
 
-
+## combat them, zscoring by row
 combat.zed <- expression.combat
 for (i in 1:nrow(combat.zed)){
     avg <- rowSums(combat.zed[i, -(1:2)]) / 46
@@ -730,135 +731,135 @@ disrupted.status <- c(disrupted.status, rep(1, nrow(expression.zed.7p)), rep(0, 
 trial.model <- lm(expression.values ~ disrupted.status)
 summary(trial.model)
 
-
-## NMF clustering
-
-example.matrix <- NULL
-
-increasing.means <- rbind(matrix(rnorm(1000, 20,5), 100,10), matrix(rnorm(1000, 35, 5), 100,10), matrix(rnorm(100, 55, 5), 100,10))
-decreasing.means <- rbind(matrix(rnorm(1000, 45,5), 100,10), matrix(rnorm(1000, 26, 5), 100,10), matrix(rnorm(100, 20, 5), 100,10))
-neither.means <- rbind(matrix(rnorm(1000, 30,5), 100,10), matrix(rnorm(1000, 55, 5), 100,10), matrix(rnorm(100, 20, 5), 100,10))
-
-example.matrix <- cbind(increasing.means, decreasing.means, neither.means)
-colnames(example.matrix) <- c(paste("inc", 1:10, sep = ""), paste("dec", 1:10, sep = ""), paste("neith", 1:10, sep = ""))
-
-data(esGolub)
-esGolub
-esGolub <- esGolub[1:200, ]
-# remove the uneeded variable ✬Sample✬ from the phenotypic
-# data
-esGolub$Sample <- NULL
-# default NMF algorithm
-res <- nmf(esGolub, 3)
-res
-fit(res)
-V.hat <- fitted(res)
-dim(V.hat)
-summary(res)
-summary(res, target = esGolub)
-summary(res, class = esGolub$Cell)
-# get matrix W
-w <- basis(res)
-dim(w)
-# get matrix H
-h <- coef(res)
-dim(h)
-
-res <- nmf(example.matrix, 3)
-
-nmf.dist <- dist(t(coef(res)))
-nmf.clust <- hclust(nmf.dist)
-plot(nmf.clust, main = "gene expression clustering-unsigned")
-## decided to use genepattern instead
-
-
-
-##SOM analysis for clustering
-library(kohonen)
-
-# Create a training data set (rows are samples, columns are variables
-# Here I am selecting a subset of my variables available in "data"
-data_train <- data[, c(2,4,5,8)]
-
-# Change the data frame with training data to a matrix
-# Also center and scale all variables to give them equal importance during
-# the SOM training process. 
-data_train_matrix <- scale(t(example.matrix))
-data_train_matrix <- matrix(rnorm(5000, 20,5), 100,50)
-
-# Create the SOM Grid - you generally have to specify the size of the 
-# training grid prior to training the SOM. Hexagonal and Circular 
-# topologies are possible
-som_grid <- somgrid(xdim = 10, ydim=10, topo="rectangular")
-
-# Finally, train the SOM, options for the number of iterations,
-# the learning rates, and the neighbourhood are available
-
-som_model <- som(data_train_matrix, grid = som_grid, rlen = 100, alpha = c(0.05, 0.01), keep.data = T, n.hood = "circular")
-plot(som_model, type="changes")
-plot(som_model, type="count")
+# 
+# ## NMF clustering
+# 
+# example.matrix <- NULL
+# 
+# increasing.means <- rbind(matrix(rnorm(1000, 20,5), 100,10), matrix(rnorm(1000, 35, 5), 100,10), matrix(rnorm(100, 55, 5), 100,10))
+# decreasing.means <- rbind(matrix(rnorm(1000, 45,5), 100,10), matrix(rnorm(1000, 26, 5), 100,10), matrix(rnorm(100, 20, 5), 100,10))
+# neither.means <- rbind(matrix(rnorm(1000, 30,5), 100,10), matrix(rnorm(1000, 55, 5), 100,10), matrix(rnorm(100, 20, 5), 100,10))
+# 
+# example.matrix <- cbind(increasing.means, decreasing.means, neither.means)
+# colnames(example.matrix) <- c(paste("inc", 1:10, sep = ""), paste("dec", 1:10, sep = ""), paste("neith", 1:10, sep = ""))
+# 
+# data(esGolub)
+# esGolub
+# esGolub <- esGolub[1:200, ]
+# # remove the uneeded variable ✬Sample✬ from the phenotypic
+# # data
+# esGolub$Sample <- NULL
+# # default NMF algorithm
+# res <- nmf(esGolub, 3)
+# res
+# fit(res)
+# V.hat <- fitted(res)
+# dim(V.hat)
+# summary(res)
+# summary(res, target = esGolub)
+# summary(res, class = esGolub$Cell)
+# # get matrix W
+# w <- basis(res)
+# dim(w)
+# # get matrix H
+# h <- coef(res)
+# dim(h)
+# 
+# res <- nmf(example.matrix, 3)
+# 
+# nmf.dist <- dist(t(coef(res)))
+# nmf.clust <- hclust(nmf.dist)
+# plot(nmf.clust, main = "gene expression clustering-unsigned")
+# ## decided to use genepattern instead
 
 
 
-data(wines)
-set.seed(7)
-
-training <- sample(nrow(wines), 120)
-Xtraining <- scale(wines[training, ])
-Xtest <- scale(wines[-training, ],
-               center = attr(Xtraining, "scaled:center"),
-               scale = attr(Xtraining, "scaled:scale"))
-
-som.wines <- som(Xtraining, grid = somgrid(5, 5, "hexagonal"))
-
-som.prediction <- predict(som.wines, newdata = Xtest,
-                          trainX = Xtraining,
-                          trainY = factor(wine.classes[training]))
-table(wine.classes[-training], som.prediction$prediction)
-str(wines)
-plot(som.wines, type = "count")
-
-kohmap <- xyf(scale(wines), classvec2classmat(wine.classes),
-              grid = somgrid(5, 5, "hexagonal"), rlen=100)
-plot(kohmap, type="changes")
-plot(kohmap, type="codes", main = c("Codes X", "Codes Y"))
-plot(kohmap, type="counts")
-
-## palette suggested by Leo Lopes
-coolBlueHotRed <- function(n, alpha = 1) {
-    rainbow(n, end=4/6, alpha=alpha)[n:1]
-}
-plot(kohmap, type="quality", palette.name = coolBlueHotRed)
-plot(kohmap, type="mapping", 
-     labels = wine.classes, col = wine.classes+1,
-     main = "mapping plot")
-
-## add background colors to units according to their predicted class labels
-xyfpredictions <- classmat2classvec(predict(kohmap)$unit.predictions)
-bgcols <- c("gray", "pink", "lightgreen")
-plot(kohmap, type="mapping", col = wine.classes+1,
-     pchs = wine.classes, bgcol = bgcols[as.integer(xyfpredictions)], 
-     main = "another mapping plot")
-
-## Show 'component planes'
-set.seed(7)
-sommap <- som(scale(wines), grid = somgrid(6, 4, "hexagonal"))
-plot(sommap, type = "property", property = sommap$codes[,1],
-     main = colnames(sommap$codes)[1])
-
-## Another way to show clustering information
-plot(sommap, type="dist.neighbours", main = "SOM neighbour distances")
-## use hierarchical clustering to cluster the codebook vectors
-som.hc <- cutree(hclust(dist(sommap$codes)), 5)
-add.cluster.boundaries(sommap, som.hc)
-
-## and the same for rectangular maps
-set.seed(7)
-sommap <- som(scale(wines),grid = somgrid(6, 4, "rectangular"))
-plot(sommap, type="dist.neighbours", main = "SOM neighbour distances")
-## use hierarchical clustering to cluster the codebook vectors
-som.hc <- cutree(hclust(dist(sommap$codes)), 5)
-add.cluster.boundaries(sommap, som.hc)
+# ##SOM analysis for clustering
+# library(kohonen)
+# 
+# # Create a training data set (rows are samples, columns are variables
+# # Here I am selecting a subset of my variables available in "data"
+# data_train <- data[, c(2,4,5,8)]
+# 
+# # Change the data frame with training data to a matrix
+# # Also center and scale all variables to give them equal importance during
+# # the SOM training process. 
+# data_train_matrix <- scale(t(example.matrix))
+# data_train_matrix <- matrix(rnorm(5000, 20,5), 100,50)
+# 
+# # Create the SOM Grid - you generally have to specify the size of the 
+# # training grid prior to training the SOM. Hexagonal and Circular 
+# # topologies are possible
+# som_grid <- somgrid(xdim = 10, ydim=10, topo="rectangular")
+# 
+# # Finally, train the SOM, options for the number of iterations,
+# # the learning rates, and the neighbourhood are available
+# 
+# som_model <- som(data_train_matrix, grid = som_grid, rlen = 100, alpha = c(0.05, 0.01), keep.data = T, n.hood = "circular")
+# plot(som_model, type="changes")
+# plot(som_model, type="count")
+# 
+# 
+# 
+# data(wines)
+# set.seed(7)
+# 
+# training <- sample(nrow(wines), 120)
+# Xtraining <- scale(wines[training, ])
+# Xtest <- scale(wines[-training, ],
+#                center = attr(Xtraining, "scaled:center"),
+#                scale = attr(Xtraining, "scaled:scale"))
+# 
+# som.wines <- som(Xtraining, grid = somgrid(5, 5, "hexagonal"))
+# 
+# som.prediction <- predict(som.wines, newdata = Xtest,
+#                           trainX = Xtraining,
+#                           trainY = factor(wine.classes[training]))
+# table(wine.classes[-training], som.prediction$prediction)
+# str(wines)
+# plot(som.wines, type = "count")
+# 
+# kohmap <- xyf(scale(wines), classvec2classmat(wine.classes),
+#               grid = somgrid(5, 5, "hexagonal"), rlen=100)
+# plot(kohmap, type="changes")
+# plot(kohmap, type="codes", main = c("Codes X", "Codes Y"))
+# plot(kohmap, type="counts")
+# 
+# ## palette suggested by Leo Lopes
+# coolBlueHotRed <- function(n, alpha = 1) {
+#     rainbow(n, end=4/6, alpha=alpha)[n:1]
+# }
+# plot(kohmap, type="quality", palette.name = coolBlueHotRed)
+# plot(kohmap, type="mapping", 
+#      labels = wine.classes, col = wine.classes+1,
+#      main = "mapping plot")
+# 
+# ## add background colors to units according to their predicted class labels
+# xyfpredictions <- classmat2classvec(predict(kohmap)$unit.predictions)
+# bgcols <- c("gray", "pink", "lightgreen")
+# plot(kohmap, type="mapping", col = wine.classes+1,
+#      pchs = wine.classes, bgcol = bgcols[as.integer(xyfpredictions)], 
+#      main = "another mapping plot")
+# 
+# ## Show 'component planes'
+# set.seed(7)
+# sommap <- som(scale(wines), grid = somgrid(6, 4, "hexagonal"))
+# plot(sommap, type = "property", property = sommap$codes[,1],
+#      main = colnames(sommap$codes)[1])
+# 
+# ## Another way to show clustering information
+# plot(sommap, type="dist.neighbours", main = "SOM neighbour distances")
+# ## use hierarchical clustering to cluster the codebook vectors
+# som.hc <- cutree(hclust(dist(sommap$codes)), 5)
+# add.cluster.boundaries(sommap, som.hc)
+# 
+# ## and the same for rectangular maps
+# set.seed(7)
+# sommap <- som(scale(wines),grid = somgrid(6, 4, "rectangular"))
+# plot(sommap, type="dist.neighbours", main = "SOM neighbour distances")
+# ## use hierarchical clustering to cluster the codebook vectors
+# som.hc <- cutree(hclust(dist(sommap$codes)), 5)
+# add.cluster.boundaries(sommap, som.hc)
 
 sample3.zed <- sample3
 ## zscore the data
