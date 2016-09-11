@@ -18,8 +18,8 @@ for(i in 2:ncol(copy.number.calls)){
 
 
 input.list <- list(c("MEN0030.TumorA", "MEN0030.TumorB"), c("MEN0042.TumorA", "MEN0042.TumorB", "MEN0042.TumorC"), 
-                   c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorB", "MEN0048.TumorC", "MEN0048.TumorD"),
-                   c("MEN0093.TumorA", "MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
+                   c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorD", "MEN0048.TumorB", "MEN0048.TumorC"),
+                   c("MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorA", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
                    c("MEN0101.Tumor", "MEN0101.TumorA"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"))
 
 primary.list <- c(1, 1, 1, 1,2,1,1,1,1,1)
@@ -30,7 +30,8 @@ percent.muts <- c()
 private.scna <- 0
 ubiq.scna <- 0
 percent.scna <- c()
-
+auto.gene.lists <- list()
+## loops through list containing reccurrences from each sample
 for (h in 1:length(input.list)){
     combined.mutations <- NULL
     
@@ -84,6 +85,10 @@ for (h in 1:length(input.list)){
     ubiq.muts <- c(ubiq.muts, combined.mutations[combined.mutations[,total.samples + 5] == total.samples, ][,2])
     percent.muts <- c(percent.muts, combined.mutations[, total.samples + 5] / total.samples)
     
+    ## gets names of all genes that are ubiquitous for change in allelic fractions plots
+    ubiq <- max(combined.mutations[, ncol(combined.mutations)])
+    auto.gene.lists[[h]] <- combined.mutations[combined.mutations[[ncol(combined.mutations)]] == ubiq, ]$Hugo_Symbol
+    
     # scna.index <- colnames(copy.number.calls) %in% input.list[[h]]
     # scna.matrix <- copy.number.binary[, scna.index]
     # scna.matrix <- cbind(scna.matrix, rowSums(scna.matrix))
@@ -92,10 +97,10 @@ for (h in 1:length(input.list)){
     # ubiq.scna <- ubiq.scna + sum(scna.matrix[, total.samples + 1] == total.samples)
     # percent.scna <- c(percent.scna, scna.matrix[, total.samples + 1] / total.samples)
     
-    combined.mutations <- combined.mutations[order(combined.mutations[, 5], combined.mutations[, 8], combined.mutations[, 7],combined.mutations[, 6], decreasing = T), ]
+    combined.mutations <- combined.mutations[order(combined.mutations[, 5], combined.mutations[, 6], decreasing = T), ]
 
     #combined.mutations <- combined.mutations[combined.mutations$`rowSums(data.matrix(combined.mutations[, -(1:2)]))` != 1, ]
-    write.table(combined.mutations, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0048_mutations.tsv", sep = "\t", row.names = F, quote = F)
+    #write.table(combined.mutations, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0048_mutations.tsv", sep = "\t", row.names = F, quote = F)
 }
 
 ## calculate percentages of mutation types
@@ -169,3 +174,63 @@ t.test(primary.scna, recurrent.scna)
 
 
 ## look at tumors where recurrences were of diffrent grades
+
+
+## plot evolution of allelic fractions over time
+# Basic line graph with points: stolen from Rcookbook
+ggplot(data=dat1, aes(x=time, y=total_bill, group=sex, shape=sex)) + 
+    geom_line(size=1.5) + 
+    geom_point(size=3, fill="white") +
+    scale_shape_manual(values=c(22,21))
+
+## takes a list of genes, and returns their allelic fraction for all samples in given sublist
+samples <- input.list[[2]]
+# gene.lists <- list(c("SRP13", "CRIPAK", "LRP1B"))
+# auto.gene.lists see above
+fractions <- c()
+recurrence <- c()
+gene <- c()
+of.interest <- c()
+for (i in 1:length(samples)){
+    pair.name <- master.table[master.table$Tumor.Name == samples[i], ]$Pair.Name[1]
+    mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
+    mutations <- mutations[mutations$Variant_Classification != "Silent", ]
+    mutations <- PerSampleMaf(mutations, "Hugo_Symbol")
+    average <- mean(mutations$i_tumor_f)
+    mutations <- mutations[mutations$Hugo_Symbol %in% auto.gene.lists[[2]], ]
+    fractions <- c(fractions, mutations$i_tumor_f, average)
+    recurrence <- c(recurrence, rep(pair.name, nrow(mutations) + 1))
+    of.interest <- c(of.interest, rep("genes", nrow(mutations)), "average")
+    
+    gene <- c(gene, mutations$Hugo_Symbol, "Average")
+    if ("NF2" %in% mutations$Hugo_Symbol){
+        idx <- max(which(gene %in% "NF2"))
+        of.interest[idx] <- "NF2"
+    }
+}
+time.series <- data.frame(fractions, recurrence, gene, of.interest)
+# Map sex to color
+x_levels <- unique(recurrence)
+time.series$recurrence <- factor(time.series$recurrence, levels = x_levels)
+ggplot(data=time.series, aes(x=recurrence, y=fractions, group=gene, colour=gene)) +
+    geom_line(size=1.5, aes(linetype=of.interest)) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Allelic Fraction") +
+    scale_linetype_manual(values=c("dotted", "solid", "longdash"))
+
+
+## look at 42 specifically, break up by direction of change
+time.series1 <- time.series[0, ]
+time.series2 <- time.series1
+for (i in 1:length(unique(time.series$gene))){
+    temp <- time.series[time.series$gene == unique(time.series$gene)[i], ]
+    if (temp$fractions[2] > temp$fractions[1]){
+        time.series1 <- rbind(time.series1, temp)
+    }else{
+        time.series2 <- rbind(time.series2, temp)
+    }
+}
+time.series2 <- rbind(time.series2, time.series[time.series$gene == "Average", ])
+time.series1$recurrence <- factor(time.series1$recurrence, levels = unique(time.series1$recurrence))
+time.series2$recurrence <- factor(time.series2$recurrence, levels = unique(time.series2$recurrence))
