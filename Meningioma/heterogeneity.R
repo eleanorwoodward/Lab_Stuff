@@ -234,3 +234,198 @@ for (i in 1:length(unique(time.series$gene))){
 time.series2 <- rbind(time.series2, time.series[time.series$gene == "Average", ])
 time.series1$recurrence <- factor(time.series1$recurrence, levels = unique(time.series1$recurrence))
 time.series2$recurrence <- factor(time.series2$recurrence, levels = unique(time.series2$recurrence))
+
+
+
+## compare average number of mutations shared between any two biopsies from same patient from maf that has already been forcecalled
+PatientAverage <- function(maf, filler){
+    ## of columns before data starts
+    percent.shared <- c()
+    for (i in (filler + 1):(ncol(maf) - 1)){
+        for (j in (i + 1):ncol(maf)){
+            shared <- rowSums(maf[, c(i,j)]) == 2
+            not.shared <- rowSums(maf[, c(i,j)]) == 1
+            percent.shared <- c(percent.shared, shared / (shared + not.shared))
+        }
+    }
+    return(percent.shared)
+}
+
+ForceCallMutations <- function(maf, sample.identifier, identifier.1, identifier.2 = identifier.1) {
+    ## Creates maf for each sample
+    samples <- unique(maf[[sample.identifier]])
+    combined.mutations <- NA
+    identifiers <- 1
+    if (!is.na(identifier.2)){
+        identifiers <- 2
+    }
+    for (i in 1:length(samples)){
+        ## sets up relevant info for each sample
+        sample.name <- samples[i]
+        mutations <- FilterMaf(maf, sample.name, sample.identifier)
+        if (i == 1){
+            ## sets up master list with all contents of first maf
+            combined.mutations <- mutations[, c(identifier.1, identifier.2, sample.identifier)]
+            combined.mutations[, 3] <- 1
+            colnames(combined.mutations)[3] <- sample.name
+            rownames(combined.mutations) <- 1:nrow(combined.mutations)
+        }else{
+            # populate column with zero as default, to be modified if any of the previously added mutations are found in current sample
+            combined.mutations[, i + 2] <- 0
+            colnames(combined.mutations)[i + 2] <- sample.name
+            ## Loops through sample maf, checking each individual row
+            for (j in 1:nrow(mutations)){
+                ## checks first identifier
+                matches.idx <- combined.mutations[[identifier.1]] == mutations[j, identifier.1]
+                ## checks if any matches
+                if (!is.na(matches.idx[1]) & sum(matches.idx) > 0){
+                    matches <- combined.mutations[matches.idx, ]
+                    hits <- which(matches[[identifier.2]] %in% mutations[j,identifier.2])
+                    ## checks if any matches from second identifier
+                    if (length(hits) > 0){
+                        ## updates sample if found
+                        original.idx <- as.numeric(rownames(matches)[hits[1]])
+                        combined.mutations[original.idx, i +2] <- 1
+                        ## if not, adds it to master list    
+                    }else{
+                        combined.mutations <- rbind(combined.mutations, c(mutations[j, identifier.1], mutations[j, identifier.2], rep(0, i -1), 1))
+                    }
+                    
+                }else{
+                    combined.mutations <- rbind(combined.mutations, c(mutations[j, identifier.1], mutations[j, identifier.2], rep(0, i - 1), 1))
+                }
+            }
+        }
+    }
+    return(combined.mutations)
+}
+
+test.drive <- disc.snindels.duplicates[disc.snindels.duplicates$Tumor_Sample_Barcode %in%
+                                           c("MEN0048-P0", "MEN0048-P2", "MEN0048-P3", "MEN0048G-P1"), ]
+test.drive <- test.drive[test.drive$Hugo_Symbol %in% c("ACSL6", "ADAMTS18", "BBS2", "ASB11"), ]
+test.1 <- ForceCallMutations(test.drive, "Tumor_Sample_Barcode", "Hugo_Symbol", "Start_position")
+
+test.1[1:335, 1] == combined.mutations[1:335, 1]
+
+combined.mutations[, 1] %in% test.1[, 1]
+
+sum(combined.mutations[, 8] == 1)
+sum(test.1[,6] == 1)
+
+
+
+## read in and preprocess all maf files for comparison
+## start with those that haven't been force called
+study7 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations/Study7_per_patient_comparison_all_pts.txt", 
+                     stringsAsFactors = F)
+colnames(study7)[2] <- "biopsy"
+study7.mafs <- list()
+study7.pats <- unique(study7$ID)
+for (i in 1:length(study7.pats)){
+    study7.mafs[[i]] <- ForceCallMutations(study7[study7$ID == study7.pats[i], ], "biopsy", "chrom", "start")
+}
+
+study8 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations/Study8_per_patient_comparison_all_pts.txt", 
+                     stringsAsFactors = F)
+study8.mafs <- list()
+study8.pats <- unique(study8$Patient)
+for (i in 1:length(study8.pats)){
+    study8.mafs[[i]] <- ForceCallMutations(study8[study8$Patient == study8.pats[i], ], "Sample", "chrom", "start")
+}
+
+study9 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations/Study9_per_patient_comparison_all_pts.txt", 
+                     stringsAsFactors = F, skip = 1)
+study9.mafs <- list()
+study9.pats <- unique(study9$patient)
+for (i in 1:length(study9.pats)){
+    study9.mafs[[i]] <- ForceCallMutations(study9[study9$patient == study9.pats[i], ], 
+                                           "Tumor_Sample_Barcode", "Chromosome", "Start_position")
+}
+
+## then do those that have been force called already
+study2 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations/Study2_per_patient_comparison_all_pts.txt", 
+                     stringsAsFactors = F)
+study2.pats <- unique(study2$Sample)
+study2.percentages <- c()
+for (i in 1:length(study2.pats)){
+    temp <- study2[study2$Sample == study2.pats[i], ]
+    shared <- sum(rowSums(temp[, 5:6]) == 2)
+    total <- nrow(temp)
+    study2.percentages <- c(study2.percentages, shared/total)
+}
+
+study5 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations/Study5_per_patient_comparison_all_pts.txt", 
+                     stringsAsFactors = F)
+study5.pats <- unique(study5$Patient.ID)
+study5.percentages <- c()
+for (i in 1:length(study5.pats)){
+    temp <- study5[study5$Patient.ID == study5.pats[i], ]
+    shared <- sum(temp[, 3] == 1)
+    total <- nrow(temp)
+    study5.percentages <- c(study5.percentages, shared/total)
+}
+file.directory <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations"
+file.list <- list.files(file.directory)
+
+## Study 1
+study1.files <- file.list[3:8]
+study1.mafs <- list()
+for (i in 1:length(study1.files)){
+    study1.mafs[[i]] <- read.delim(paste(file.directory,study1.files[i], sep = "/"), stringsAsFactors = F)
+}
+
+## Study 3
+study3.file.directory <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/ID_protected/"
+study3.files <- list.files(study3.file.directory)
+study3.files <- study3.files[-(1:12)]
+study3.mafs <- list()
+temp <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/ID_protected/EC-001-ECM1-AB.maf",
+                   stringsAsFactors = F)
+current.pat <- "000"
+pat.num <- 0
+for (i in 1:length(study3.files)){
+    temp <- read.delim(paste(study3.file.directory, study3.files[i], sep = ""), stringsAsFactors = F)
+    next.pat <- strsplit(study3.files[i], "-")[[1]]
+    if (next.pat[2] == current.pat){
+        previous <- study3.mafs[[pat.num]]
+        current <- temp[, 328]
+        combined <- cbind(previous, current)
+        colnames(combined)[ncol(combined)] <- next.pat[3]
+        study3.mafs[[pat.num]] <- combined
+    }else{
+        current.pat <- next.pat[2]
+        pat.num <- pat.num + 1
+        combined <- temp[, c(1,5,328)]
+        colnames(combined)[3] <- next.pat[3]
+        study3.mafs[[pat.num]] <- combined
+    }
+}
+
+## Study 4
+study4.files <- file.list[24:28]
+study4.mafs <- list()
+for (i in 1:length(study4.files)){
+    temp <- read.delim(paste(file.directory,study4.files[i], sep = "/"), stringsAsFactors = F)
+    colnames(temp)[c(4,8,9,10)] <- c("start", "s1", "s2", "s3")
+    study4.mafs[[i]] <- temp[, c(3:4, 8:10)]
+}
+
+## Study 6
+study6.files <- file.list[33:42]
+study6.mafs <- list()
+for (i in 1:length(study6.files)){
+    study6.mafs[[i]] <- read.delim(paste(file.directory,study6.files[i], sep = "/"), stringsAsFactors = F)
+}
+
+## Study 10
+study10.files <- file.list[11:20]
+study10.mafs <- list()
+for (i in 1:length(study10.files)){
+    temp <- read.delim(paste(file.directory,study10.files[i], sep = "/"), stringsAsFactors = F)
+    study10.mafs[[i]] <- temp[, -c(2:4)]
+}
+
+study.export <- data.frame(study2.percentages, study5.percentages, )
+
+
+
