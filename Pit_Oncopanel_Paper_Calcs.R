@@ -42,6 +42,18 @@ for (i in 1:nrow(by.gene)){
 write.table(by.gene, "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/by_gene.txt", row.names = F, quote = F, sep = "\t")
 ## last modified 9/8/16
 by.gene <- read.delim("C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/by_gene.txt", stringsAsFactors = F)
+by.gene.copy <- by.gene
+for (i in 1:20){
+    temp <- strsplit(by.gene$gene[i], " ")[[1]]
+    if (length(temp) > 1){
+        by.gene$gene[i] <- temp[2]
+    }else{
+        by.gene$gene[i] <- temp[1]
+    }
+    
+}
+
+temp <- table(by.gene$gene)
 
 ## Analysis
 
@@ -60,6 +72,10 @@ for (i in 1:3){
     mtrx1[1, i] <- signif(math.party$p.value, 2)
 }
 mtrx1
+
+## correlation between disruption and other clinical features
+table(onc.data$Atypical., onc.data$disruption)
+table(onc.data$Recurrent.Tumor., onc.data$disruption)
 
 
 ## Chr loss freq
@@ -94,12 +110,14 @@ hist(down, breaks = 1:23)
 
 
 ## cohort statistics
-func.adenomas <- by.gene[by.gene$pathology.clinical == "Functional", ]
+## generate maf for functional and nonfunctional adenomas
+by.gene.patient <- PerSampleMaf(by.gene, "gene", "BWH_MRN")
+func.adenomas <- by.gene.patient[by.gene.patient$pathology.clinical == "Functional", ]
+nonfunc.adenomas <- by.gene.patient[by.gene.patient$pathology.clinical == "Nonfunctional", ]
 
-nonfunc.adenomas <- by.gene[by.gene$pathology.clinical == "Nonfunctional", ]
-
-mutations.func <- table(func.adenomas$BWH_MRN)
-mutations.nonfunc <- table(nonfunc.adenomas$BWH_MRN)
+# test difference in mutation rates
+func.table <- table(func.adenomas$gene)
+nonfunc.table <- table(nonfunc.adenomas$gene)
 
 wilcox.test(mutations.nonfunc, mutations.func)
 
@@ -108,35 +126,83 @@ wilcox.test(mutations.nonfunc, mutations.func)
 ## generate plot of mutations in all tumors
 setwd("C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/figures + tables/")
 pdf("mutation barplot all tumors.pdf", width = 10, height = 7)
-PlotMaf(by.gene, "gene", 18, title = "Genes Mutated in at least 4 pituitary tumor patients")
+PlotMaf(by.gene.patient, "gene", 18, title = "Genes Mutated in at least 4 pituitary tumor patients")
 dev.off()
 
 ## generate plot of adenoma mutations
 pdf("mutation barplot adenomas.pdf", width = 10, height = 7)
-by.gene.adenomas <- FilterMaf(by.gene, c("Functional", "Null"), "pathology.anatomic")
-PlotMaf(by.gene.adenomas, "gene", 23, title = "Genes Mutated in at least 4 adenoma patients")
+by.gene.adenomas <- FilterMaf(by.gene.patient, c("Functional", "Null"), "pathology.anatomic")
+PlotMaf(by.gene.adenomas, "gene", 25, title = "Genes Mutated in at least 4 adenoma patients")
 dev.off()
 
 
-nrow(by.gene) / 106
+nrow(by.gene.patient) / 106
 
-length(unique(by.gene$gene))
+length(unique(by.gene.patient$gene))
 
 ## Hotspot mutations
-hot <- ReccurentMaf(by.gene, "amino.acid")
+hot <- ReccurentMaf(by.gene.patient, "amino.acid")
+hot.table <- table(hot$gene)
+hot.list <- names(hot.table[hot.table > 1])
 
-
+PlotMaf(by.gene.adenomas[by.gene.adenomas$gene %in% hot.list, ], "gene", "Genes with hotspot mutations")
 ## GSEA
 
-func.keepers <- sort(table(func.adenomas$gene)[table(func.adenomas$gene) > 1])
-nonfunc.keepers <- sort(table(nonfunc.adenomas$gene)[table(nonfunc.adenomas$gene) > 1])
-adenoma.keepers <- sort(table(by.gene$gene)[table(by.gene$gene) > 1])
 
 ## plot mutations in functional vs nonfunctional
-## Comparison of frameshift/nonsese vs others
+## Comparison of functional vs nonfunctional tumors
 pdf("mutations functional vs nonfunctional.pdf", width = 15, height = 7)
-combined.table <- EqualizeTable(func.keepers,nonfunc.keepers)
+combined.table <- EqualizeTable(table(func.adenomas$gene),table(nonfunc.adenomas$gene))
 barplot(combined.table, main = "Comparison of functional and nonfunctional adenomas", 
         legend.text = c("Functional adenomas", "Nonfunctional Adenomas"), las = 2, beside = TRUE, args.legend = list(x = "topleft"))
 dev.off()
+adenoma.table <- table(by.gene.adenomas$gene)
+gh.table <- table(by.gene.adenomas[by.gene.adenomas$Pathology.Subtype == "HGH", ]$gene)
+gh.df <- data.frame(gh.table, rep("GH", length(gh.table)))
+acth.table <- table(by.gene.adenomas[by.gene.adenomas$Pathology.Subtype == "ACTH", ]$gene)
+acth.df <- data.frame(acth.table, rep("ACTH", length(acth.table)))
+prl.table <- table(by.gene.adenomas[by.gene.adenomas$Pathology.Subtype == "Prolactin", ]$gene)
+prl.df <- data.frame(prl.table, rep("PRL", length(prl.table)))
+null.table <- table(by.gene.adenomas[by.gene.adenomas$Pathology.Subtype %in% c("Null", "null"), ]$gene)
+null.df <- data.frame(null.table, rep("Null", length(null.table)))
+colnames(gh.df) <- c("Gene", "Freq", "Subtype")
+colnames(acth.df) <- c("Gene", "Freq", "Subtype")
+colnames(prl.df) <- c("Gene", "Freq", "Subtype")
+colnames(null.df) <- c("Gene", "Freq", "Subtype")
+subtype.df <- rbind(gh.df, acth.df, prl.df, null.df)
+## creates data frame with per subtype rate
+## 
+
+inclusion.list <- dimnames(table(by.gene.adenomas$gene)[table(by.gene.adenomas$gene) > 3])[[1]]
+subtype.df <- subtype.df[subtype.df$Gene %in% inclusion.list, ]
+ggplot(subtype.df, aes(x = Gene, y = Freq, fill = Subtype)) + 
+    geom_bar(stat = "identity") +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+## genets
+write.csv(adenoma.table[adenoma.table > 4], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/all_adenoma_5ormore.csv")
+write.csv(adenoma.table[adenoma.table > 3], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/all_adenoma_4ormore.csv")
+write.csv(adenoma.table[adenoma.table > 2], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/all_adenoma_3ormore.csv")
+write.csv(adenoma.table[adenoma.table > 1], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/all_adenoma_2ormore.csv")
+
+write.csv(func.table[func.table > 1], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/func_adenoma_2ormore.csv")
+write.csv(func.table[func.table > 2], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/func_adenoma_3ormore.csv")
+write.csv(func.table[func.table > 3], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/func_adenoma_4ormore.csv")
+
+write.csv(nonfunc.table[nonfunc.table > 1], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/nonfunc_adenoma_2ormore.csv")
+write.csv(nonfunc.table[nonfunc.table > 2], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/nonfunc_adenoma_3ormore.csv")
+write.csv(nonfunc.table[nonfunc.table > 3], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/nonfunc_adenoma_4ormore.csv")
+
+write.csv(gh.table[gh.table > 1], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/gh_adenoma_2ormore.csv")
+write.csv(gh.table[gh.table > 2], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/gh_adenoma_3ormore.csv")
+write.csv(gh.table[gh.table > 3], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/gh_adenoma_4ormore.csv")
+
+write.csv(acth.table[acth.table > 1], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/acth_adenoma_2ormore.csv")
+write.csv(acth.table[acth.table > 2], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/acth_adenoma_3ormore.csv")
+write.csv(acth.table[acth.table > 3], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/acth_adenoma_4ormore.csv")
+
+write.csv(prl.table[prl.table > 1], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/prl_adenoma_2ormore.csv")
+write.csv(prl.table[prl.table > 2], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/prl_adenoma_3ormore.csv")
+write.csv(prl.table[prl.table > 3], "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/GeNets/prl_adenoma_4ormore.csv")
 
