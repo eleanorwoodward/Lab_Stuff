@@ -31,6 +31,9 @@ private.scna <- 0
 ubiq.scna <- 0
 percent.scna <- c()
 auto.gene.lists <- list()
+men.mafs <- list()
+cleaned.05.disc.snindels.duplicates <- disc.snindels.duplicates[disc.snindels.duplicates$i_tumor_f > .05, ]
+cleaned.15.disc.snindels.duplicates <- disc.snindels.duplicates[disc.snindels.duplicates$i_tumor_f > .15, ]
 ## loops through list containing reccurrences from each sample
 for (h in 1:length(input.list)){
     combined.mutations <- NULL
@@ -40,7 +43,7 @@ for (h in 1:length(input.list)){
         ## sets up relevant info for each sample
         sample.name <- input.list[[h]][i]
         pair.name <- master.table[master.table$Tumor.Name == sample.name, ]$Pair.Name
-        mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
+        mutations <- FilterMaf(cleaned.15.disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
         if (i == 1){
             ## sets up master list with all contents of first maf
             combined.mutations <- mutations[, c(1,2,4,5)]
@@ -78,7 +81,7 @@ for (h in 1:length(input.list)){
             }
         }
     }
-    
+    men.mafs[[h]] <- combined.mutations
     combined.mutations <- cbind(combined.mutations, rowSums(data.matrix(combined.mutations[, -(1:4)])))
     total.samples <- length(input.list[[h]])
     private.muts <- c(private.muts, combined.mutations[combined.mutations[,total.samples + 5] == 1, ][,2])
@@ -241,14 +244,18 @@ time.series2$recurrence <- factor(time.series2$recurrence, levels = unique(time.
 PatientAverage <- function(maf, filler){
     ## of columns before data starts
     percent.shared <- c()
-    for (i in (filler + 1):(ncol(maf) - 1)){
-        for (j in (i + 1):ncol(maf)){
-            shared <- rowSums(maf[, c(i,j)]) == 2
-            not.shared <- rowSums(maf[, c(i,j)]) == 1
-            percent.shared <- c(percent.shared, shared / (shared + not.shared))
+    if (ncol(maf) <= filler + 1){
+        #do nothing, only one sample
+    }else{
+        for (i in (filler + 1):(ncol(maf) - 1)){
+            for (j in (i + 1):ncol(maf)){
+                shared <- sum(maf[, i] > 0 & maf[, j] > 0)
+                not.shared <- sum(maf[, i] > 0 | maf[, j] > 0)
+                percent.shared <- c(percent.shared, shared / (shared + not.shared))
+            }
         }
-    }
     return(percent.shared)
+    }
 }
 
 ForceCallMutations <- function(maf, sample.identifier, identifier.1, identifier.2 = identifier.1) {
@@ -347,22 +354,26 @@ study2 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/He
                      stringsAsFactors = F)
 study2.pats <- unique(study2$Sample)
 study2.percentages <- c()
+study2.numbers <- c()
 for (i in 1:length(study2.pats)){
     temp <- study2[study2$Sample == study2.pats[i], ]
     shared <- sum(rowSums(temp[, 5:6]) == 2)
     total <- nrow(temp)
     study2.percentages <- c(study2.percentages, shared/total)
+    study2.numbers <- c(study2.numbers, total)
 }
 
 study5 <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations/Study5_per_patient_comparison_all_pts.txt", 
                      stringsAsFactors = F)
 study5.pats <- unique(study5$Patient.ID)
 study5.percentages <- c()
+study5.numbers <- c()
 for (i in 1:length(study5.pats)){
     temp <- study5[study5$Patient.ID == study5.pats[i], ]
     shared <- sum(temp[, 3] == 1)
     total <- nrow(temp)
     study5.percentages <- c(study5.percentages, shared/total)
+    study5.numbers <- c(study5.numbers, total)
 }
 file.directory <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Previously published/mutations"
 file.list <- list.files(file.directory)
@@ -425,7 +436,167 @@ for (i in 1:length(study10.files)){
     study10.mafs[[i]] <- temp[, -c(2:4)]
 }
 
-study.export <- data.frame(study2.percentages, study5.percentages, )
+## compute pairwise comparisons
+study1.percentages <- c()
+study1.averages <- c()
+study1.numbers <- c()
+for (i in 1:length(study1.mafs)){
+    temp <- study1.mafs[[i]]
+    percents <- PatientAverage(temp, 0)
+    study1.percentages <- c(study1.percentages, percents)
+    study1.averages <- c(study1.averages, mean(percents))
+    study1.numbers <- c(study1.numbers, nrow(temp))
+    
+}
+
+study3.percentages <- c()
+study3.averages <- c()
+study3.numbers <- c()
+for (i in 1:length(study3.mafs)){
+    temp <- study3.mafs[[i]]
+    percents <- PatientAverage(temp, 2)
+    study3.percentages <- c(study3.percentages, percents)
+    study3.averages <- c(study3.averages, mean(percents))
+    study3.numbers <- c(study3.numbers, nrow(temp))
+}
+
+study4.mafs[[5]] <- study4.mafs[[5]][-6440, ]
+study4.percentages <- c()
+study4.averages <- c()
+study4.numbers <- c()
+for (i in 1:length(study4.mafs)){
+    temp <- study4.mafs[[i]]
+    percents <- PatientAverage(temp, 2)
+    study4.percentages <- c(study4.percentages, percents)
+    study4.averages <- c(study4.averages, mean(percents))
+    study4.numbers <- c(study4.numbers, nrow(temp))
+}
+
+temp <- study6.mafs[[9]]
+
+study6.percentages <- c()
+study6.averages <- c()
+study6.numbers <- c()
+for (i in 1:length(study6.mafs)){
+    temp <- study6.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 1)
+    study6.percentages <- c(study6.percentages, percents)
+    study6.averages <- c(study6.averages, mean(percents))
+    study6.numbers <- c(study6.numbers, nrow(temp))
+}
+
+temp <- study7.mafs[[5]]
+
+study7.percentages <- c()
+study7.averages <- c()
+study7.numbers <- c()
+for (i in 1:length(study7.mafs)){
+    temp <- study7.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 2)
+    study7.percentages <- c(study7.percentages, percents)
+    study7.averages <- c(study7.averages, mean(percents))
+    study7.numbers <- c(study7.numbers, nrow(temp))
+}
+
+study8.percentages <- c()
+study8.numbers <- c()
+for (i in 1:length(study8.mafs)){
+    temp <- study8.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 2)
+    study8.percentages <- c(study8.percentages, percents)
+    study8.numbers <- c(study8.numbers, nrow(temp))
+}
 
 
+
+study9.percentages <- c()
+study9.averages <- c()
+study9.numbers <- c()
+for (i in 1:length(study9.mafs)){
+    temp <- study9.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 2)
+    study9.percentages <- c(study9.percentages, percents)
+    study9.averages <- c(study9.averages, mean(percents))
+    study9.numbers <- c(study9.numbers, nrow(temp))
+}
+
+
+study10.percentages <- c()
+study10.averages <- c()
+study10.numbers <- c()
+for (i in 1:length(study10.mafs)){
+    temp <- study10.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 1)
+    study10.percentages <- c(study10.percentages, percents)
+    study10.averages <- c(study10.averages, mean(percents))
+    study10.numbers <- c(study10.numbers, nrow(temp))
+}
+
+temp <-men.mafs[[2]]
+
+studyMen.percentages <- c()
+studyMen.averages <- c()
+studyMen.numbers <- c()
+for (i in 1:length(men.mafs)){
+    temp <- men.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 4)
+    studyMen.percentages <- c(studyMen.percentages, percents)
+    studyMen.averages <- c(studyMen.averages, mean(percents))
+    studyMen.numbers <- c(studyMen.numbers, nrow(temp))
+}
+
+export.list.1 <- list(study1.percentages, study2.percentages, study3.percentages, study4.percentages, study5.percentages,
+                           study6.percentages, study7.percentages, study8.percentages, study9.percentages, study10.percentages, 
+                           studyMen.percentages)
+export.list.2 <- list(study1.averages, study2.percentages, study3.averages, study4.averages, study5.percentages, study6.averages, 
+                     study7.averages, study8.percentages, study9.averages, study10.averages, studyMen.averages)
+max.length <- 0
+for (i in 1:length(export.list.2)){
+    if (length(export.list.2[[i]]) > max.length){
+        max.length <- length(export.list.2[[i]])
+    }
+}
+
+for (i in 1:length(export.list.2)){
+    export.list.2[[i]] <- c(export.list.2[[i]], rep(NA, max.length - length(export.list.2[[i]])))
+}
+
+export.2 <- data.frame(export.list.2)
+write.csv(export.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/shared.comparison.average.csv", 
+          row.names = F)
+
+all.numbers <- c(study1.numbers, study2.numbers, study3.numbers, study4.numbers, study5.numbers,
+                                      study6.numbers, study7.numbers, study8.numbers, study9.numbers, study10.numbers, 
+                                      studyMen.numbers)
+
+all.averages <- c(study1.averages, study2.percentages, study3.averages, study4.averages, study5.percentages,
+                 study6.averages, study7.averages, study8.percentages, study9.averages, study10.averages, 
+                 studyMen.averages)
+
+remove <- all.numbers > 4000
+
+all.numbers <- all.numbers[!remove]
+all.averages <- all.averages[!remove]
+plot(all.averages, all.numbers)
+## check and see about samples that don't have reconstructable phylogeny
+men0048.combined.calls <- men.mafs[[4]]
+men0048.combined.calls <- men0048.combined.calls[order(men0048.combined.calls[, 5], men0048.combined.calls[, 6], men0048.combined.calls[, 7], men0048.combined.calls[, 8], 
+                                                       decreasing = T), ]
+
+men0093.combined.calls <- men.mafs[[5]]
+men0093.combined.calls <- men0093.combined.calls[order(men0093.combined.calls[, 5], men0093.combined.calls[, 6], men0093.combined.calls[, 7], men0093.combined.calls[, 8], 
+                                                       decreasing = T), ]
+write.csv(men0093.combined.calls, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/men0093.mutations.csv", row.names = F)
 
