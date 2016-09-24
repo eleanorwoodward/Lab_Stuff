@@ -43,7 +43,7 @@ for (h in 1:length(input.list)){
         ## sets up relevant info for each sample
         sample.name <- input.list[[h]][i]
         pair.name <- master.table[master.table$Tumor.Name == sample.name, ]$Pair.Name
-        mutations <- FilterMaf(cleaned.15.disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
+        mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
         if (i == 1){
             ## sets up master list with all contents of first maf
             combined.mutations <- mutations[, c(1,2,4,5)]
@@ -105,6 +105,47 @@ for (h in 1:length(input.list)){
     #combined.mutations <- combined.mutations[combined.mutations$`rowSums(data.matrix(combined.mutations[, -(1:2)]))` != 1, ]
     #write.table(combined.mutations, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0048_mutations.tsv", sep = "\t", row.names = F, quote = F)
 }
+## read in bap1 data, force call, add to existing mafs
+
+bap1.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Bap1/mafs/"
+bap1.list <- list.files(bap1.folder)
+bap1.indel <- NA
+for (i in (c(1,3,5,7))){
+    temp <- read.delim(paste(bap1.folder, bap1.list[i], sep=""), stringsAsFactors = F, comment.char = "#")
+    bap1.indel <- rbind(bap1.indel, temp)
+}
+
+bap1.indel.long <- NA
+for (i in (c(9,11,13,15,17))){
+    temp <- read.delim(paste(bap1.folder, bap1.list[i], sep=""), stringsAsFactors = F, comment.char = "#")
+    bap1.indel.long <- rbind(bap1.indel.long, temp)
+}
+
+
+bap1.snp <- NA
+for (i in (c(2,4,6,8))){
+    temp <- read.delim(paste(bap1.folder, bap1.list[i], sep=""), stringsAsFactors = F, comment.char = "#")
+    bap1.snp <- rbind(bap1.snp, temp)
+}
+
+bap1.snp.long <- NA
+for (i in (c(10,12,14,16,18))){
+    temp <- read.delim(paste(bap1.folder, bap1.list[i], sep=""), stringsAsFactors = F, comment.char = "#")
+    bap1.snp.long <- rbind(bap1.snp.long, temp)
+}
+bap1.1 <- rbind(bap1.snp[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "i_tumor_f", "Chromosome", "Start_position")],
+                bap1.indel[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "i_tumor_f", "Chromosome", "Start_position")])
+    
+bap1.2 <- rbind(bap1.snp.long[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "i_tumor_f", "Chromosome", "Start_position")],
+               bap1.indel.long[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "i_tumor_f", "Chromosome", "Start_position")])
+
+bap1.1.forced <- ForceCallMutations(bap1.1[-1, ], "Tumor_Sample_Barcode", "Hugo_Symbol", "Start_position")
+bap1.1.forced <- cbind(bap1.1.forced[, 1:2], bap1.1.forced[, -8])
+
+bap1.2.forced <- ForceCallMutations(bap1.2[-1, ], "Tumor_Sample_Barcode", "Hugo_Symbol", "Start_position")
+bap1.2.forced <- cbind(bap1.2.forced, bap1.2.forced[,])
+men.mafs[[11]] <- bap1.1.forced
+men.mafs[[12]] <- bap1.2.forced
 
 ## calculate percentages of mutation types
 length(private.muts) / length(percent.muts)
@@ -134,7 +175,7 @@ for (i in 1:length(input.list)){
         current.name <- master.table[master.table$Tumor.Name == sample.names[j], ]$Pair.Name
         muts <- nrow(FilterMaf(disc.snindels.duplicates, current.name,"Tumor_Sample_Barcode"))
         current.counts <- c(current.counts, muts)
-        scnas <- sum(copy.number.calls[[sample.names[j]]] != 0)
+        scnas <- sum(all.cna[[sample.names[j]]] != 0)
         current.scna.counts <- c(current.scna.counts, scnas)
         if (primary.list[i] == j){
             primary.counts <- c(primary.counts, muts)
@@ -162,6 +203,7 @@ sd(unlist(pair.mut.counts)) / mean(unlist(pair.mut.counts))
 
 ## same for copy number
 all.stdv <- c()
+pair.scna.counts <- pair.scna.counts[-6]
 for (i in 1:length(pair.scna.counts)){
     stdv <- sd(pair.scna.counts[[i]])
     all.stdv <- c(all.stdv, stdv / mean(pair.mut.counts[[i]]))
@@ -250,11 +292,34 @@ PatientAverage <- function(maf, filler){
         for (i in (filler + 1):(ncol(maf) - 1)){
             for (j in (i + 1):ncol(maf)){
                 shared <- sum(maf[, i] > 0 & maf[, j] > 0)
-                not.shared <- sum(maf[, i] > 0 | maf[, j] > 0)
-                percent.shared <- c(percent.shared, shared / (shared + not.shared))
+                total <- sum(maf[, i] > 0 | maf[, j] > 0)
+                percent.shared <- c(percent.shared, shared / total)
             }
         }
     return(percent.shared)
+    }
+}
+
+## calculates the percent of private mutations that are in the sample, as well as maximum difference
+PatientPrimaryRecurrent <- function(maf, filler){
+    ## of columns before data starts
+    percent.private.recurrence <- c()
+    percent.first.last <- 0
+    if (ncol(maf) <= filler + 1){
+        #do nothing, only one sample
+    }else{
+        for (i in (filler + 1):(ncol(maf) - 1)){
+            private.primary <- sum(maf[, i] > 0 & maf[, i + 1] == 0)
+            private.recurrence <- sum(maf[, i + 1] > 0 & maf[, i] == 0)
+            
+            percent.private.recurrence <- c(percent.private.recurrence, private.recurrence / (private.primary + private.recurrence))
+
+        }
+        private.first <- sum(maf[, filler + 1] > 0)
+        private.last <- sum(maf[, ncol(maf)] > 0)
+        percent.first.last <- private.last / (private.last + private.first)
+        
+        return(list(percent.private.recurrence, percent.first.last))
     }
 }
 
@@ -436,13 +501,26 @@ for (i in 1:length(study10.files)){
     study10.mafs[[i]] <- temp[, -c(2:4)]
 }
 
+## Study 11
+study11.files <- file.list[22:28]
+study11.mafs <- list()
+for (i in 1:length(study11.files)){
+    temp <- read.delim(paste(file.directory,study11.files[i], sep = "/"), stringsAsFactors = F)
+    study11.mafs[[i]] <- temp[, -c(1:2)]
+}
+
 ## compute pairwise comparisons
 study1.percentages <- c()
 study1.averages <- c()
 study1.numbers <- c()
+study1.first.last <- c()
+study1.primary.recurrence <- c()
 for (i in 1:length(study1.mafs)){
     temp <- study1.mafs[[i]]
     percents <- PatientAverage(temp, 0)
+    primary.vs.recurrent <- PatientPrimaryRecurrent(temp, 0)
+    study1.primary.recurrence <- c(study1.primary.recurrence,primary.vs.recurrent[[1]])
+    study1.first.last <- c(study1.first.last, primary.vs.recurrent[[2]])
     study1.percentages <- c(study1.percentages, percents)
     study1.averages <- c(study1.averages, mean(percents))
     study1.numbers <- c(study1.numbers, nrow(temp))
@@ -542,19 +620,93 @@ for (i in 1:length(study10.mafs)){
     study10.numbers <- c(study10.numbers, nrow(temp))
 }
 
-temp <-men.mafs[[2]]
 
+study11.percentages <- c()
+study11.averages <- c()
+study11.numbers <- c()
+for (i in 1:length(study11.mafs)){
+    temp <- study11.mafs[[i]]
+    temp <- temp[, !is.na(temp[2, ])]
+    temp <- temp[!is.na(temp[, 2]), ]
+    percents <- PatientAverage(temp, 0)
+    study11.percentages <- c(study11.percentages, percents)
+    study11.averages <- c(study11.averages, mean(percents))
+    study11.numbers <- c(study11.numbers, nrow(temp))
+}
+
+total.men.mafs <- men.mafs
+men.mafs <- men.mafs[-c(3,6)]
 studyMen.percentages <- c()
 studyMen.averages <- c()
 studyMen.numbers <- c()
-for (i in 1:length(men.mafs)){
+studyMen.first.last <- c()
+studyMen.primary.recurrence <- c()
+studyMen.primary.recurrence.average <- c()
+studyMen.primary.recurrence.change <- c()
+for (i in 1:8)){
     temp <- men.mafs[[i]]
     temp <- temp[, !is.na(temp[2, ])]
     temp <- temp[!is.na(temp[, 2]), ]
     percents <- PatientAverage(temp, 4)
+    primary.vs.recurrent <- PatientPrimaryRecurrent(temp, 4)
+    primary.vs.recurrent.vals <- primary.vs.recurrent[[1]]
+    studyMen.primary.recurrence <- c(studyMen.primary.recurrence,primary.vs.recurrent.vals)
+    studyMen.primary.recurrence.average <- c(studyMen.primary.recurrence.average,mean(primary.vs.recurrent.vals))
+    studyMen.first.last <- c(studyMen.first.last, primary.vs.recurrent[[2]])
     studyMen.percentages <- c(studyMen.percentages, percents)
     studyMen.averages <- c(studyMen.averages, mean(percents))
     studyMen.numbers <- c(studyMen.numbers, nrow(temp))
+    for (j in 2:(length(primary.vs.recurrent.vals))){
+        percent <- (primary.vs.recurrent.vals[j] / primary.vs.recurrent.vals[j - 1])
+        studyMen.primary.recurrence.change <- c(studyMen.primary.recurrence.change, percent)
+    }
+}
+
+
+## look at heterogeneity in copy number alterations
+focal.cna <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/all_hg.7.15/all_lesions.conf_99.txt", 
+                        stringsAsFactors = F)
+focal.cna <- focal.cna[1:61, ]
+
+focal.mafs <- list(focal.cna[, 11:12], focal.cna[, 14:16], focal.cna[, 17:21], focal.cna[, 22:25], 
+                   focal.cna[, c(33, 35:37)], focal.cna[, 47:48], focal.cna[, 65:66], focal.cna[, 67:68], focal.cna[, 69:70])
+
+focal.percents <- c()
+focal.percents.mean <- c()
+for (i in 1:length(focal.mafs)){
+    temp <- focal.mafs[[i]]
+    patient.percents <- PatientAverage(temp, 0)
+    focal.percents <- c(focal.percents, patient.percents)
+    focal.percents.mean <- c(focal.percents.mean, mean(patient.percents))
+}
+
+broad.cna <- cbind(focal.cna[1:39, 1:8], copy.number.binary)
+broad.mafs <- list(broad.cna[, 11:12], broad.cna[, 14:16], broad.cna[, 17:21], broad.cna[, 22:25], 
+                   broad.cna[, c(33, 35:37)], broad.cna[, 47:48], broad.cna[, 65:66], broad.cna[, 67:68], broad.cna[, 69:70])
+
+broad.percents <- c()
+broad.percents.mean <- c()
+for (i in 1:length(broad.mafs)){
+    temp <- broad.mafs[[i]]
+    patient.percents <- PatientAverage(temp, 0)
+    broad.percents <- c(broad.percents, patient.percents)
+    broad.percents.mean <- c(broad.percents.mean, mean(patient.percents))
+}
+
+
+all.cna <- rbind(focal.cna[-9], broad.cna[, -9])
+all.cna <- cbind(all.cna[,1], all.cna)
+
+all.mafs <- list(all.cna[, 11:12], all.cna[, 14:16], all.cna[, 17:21], all.cna[, 22:25], 
+                   all.cna[, c(33, 35:37)], all.cna[, 47:48], all.cna[, 65:66], all.cna[, 67:68], all.cna[, 69:70])
+
+all.percents <- c()
+all.percents.mean <- c()
+for (i in 1:length(all.mafs)){
+    temp <- all.mafs[[i]]
+    patient.percents <- PatientAverage(temp, 0)
+    all.percents <- c(all.percents, patient.percents)
+    all.percents.mean <- c(all.percents.mean, mean(patient.percents))
 }
 
 export.list.1 <- list(study1.percentages, study2.percentages, study3.percentages, study4.percentages, study5.percentages,
@@ -574,7 +726,7 @@ for (i in 1:length(export.list.2)){
 }
 
 export.2 <- data.frame(export.list.2)
-write.csv(export.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/shared.comparison.average.csv", 
+write.csv(export.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/shared.comparison.fixed_calculation_average.csv", 
           row.names = F)
 
 all.numbers <- c(study1.numbers, study2.numbers, study3.numbers, study4.numbers, study5.numbers,
@@ -599,4 +751,23 @@ men0093.combined.calls <- men.mafs[[5]]
 men0093.combined.calls <- men0093.combined.calls[order(men0093.combined.calls[, 5], men0093.combined.calls[, 6], men0093.combined.calls[, 7], men0093.combined.calls[, 8], 
                                                        decreasing = T), ]
 write.csv(men0093.combined.calls, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/men0093.mutations.csv", row.names = F)
+
+
+## get info to make accurate trees
+## MEn0030
+tree <- men.mafs[[1]]
+sum(tree[, 5] > 0 & tree[,6] > 0)
+sum(tree[, 5] > 0)
+sum(tree[, 6] > 0)
+
+##MEN042
+tree <- men.mafs[[2]]
+tree <- tree[order(tree[, 5], tree[,6], tree[,7], decreasing = T), ]
+sum(tree[, 5] > 0 & tree[,6] > 0 & tree[,7] > 0)
+sum(tree[, 5] > 0 & tree[,7] > 0)
+sum(tree[, 5] > 0)
+sum(tree[, 6] > 0)
+sum(tree[, 7] > 0)
+
+
 
