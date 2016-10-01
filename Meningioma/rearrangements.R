@@ -1,146 +1,41 @@
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
-## Gets centromere position
-centromere.positions <- read.delim("C:/Users/Noah/Onedrive/Work/Coding/R/dbs/centromere_positions.txt", stringsAsFactors = F, comment.char = "", header = T)
-centromere.positions <- centromere.positions[order(centromere.positions$chrom), ]
-mtrx <- matrix(NA, 24, 3)
-colnames(mtrx) <- c("chr", "start", "end")
 
-# takes max and min of possible centromere positions
-for (i in 1:24){
-    tmp <- unique(centromere.positions$chrom)[i]
-    vals <- FilterMaf(centromere.positions, tmp, "chrom")
-    mtrx[i,1] <- i
-    mtrx[i,2] <- min(vals$chromStart)
-    mtrx[i,3] <- max(vals$chromEnd)
-}
-cents <- data.frame(mtrx)
+total.rearrangements <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Rearrangements/men.tsv", stringsAsFactors = F)
 
-## Filters out low AF variants
-## make combined list
-
-total.rearrangements <- rbind(ph.rearrangements, discovery.rearrangements)
-
-for (i in 1:nrow(total.rearrangements)){
-    vals <- strsplit(total.rearrangements[i, 29], ":")
-    if (length(vals[[1]]) < 3){
-        total.rearrangements[i, 38:39] <- NA
-    }else{
-        
-    
-        variants <- as.numeric(vals[[1]][2])
-        total <- as.numeric(vals[[1]][3])
-        total.rearrangements[i, 38:39] <- c(variants, total)
-    }
-}
-total.rearrangements[,40] <- seq(nrow(total.rearrangements))
 ## Keeps only those that pass QC filter
 ## If span is greater than 1000 bases, allows for 5% allelic fraction and 2 reads
 ## if span is less than 1000 bases, requires 10% af and at least 5 reads
-good.rearrangements <- total.rearrangements[(total.rearrangements$span > 1000 | total.rearrangements$span == -1) & total.rearrangements[, 38] > 1 & 
-                                                     (total.rearrangements[,38] / total.rearrangements[, 39] > .05 ) 
-                                             | total.rearrangements[, 38] > 5 & (total.rearrangements[,38] / total.rearrangements[, 39] > .10 ) , ]
-#good.rearrangements <- FilterMaf(good.rearrangements, c(total.list, "MEN_PH_LG_41-pair"), "Sample")
-good.rearrangements[, 40] <- seq(nrow(good.rearrangements))
-colnames(good.rearrangements)[38:40] <- c("number.reads", "allelic.fraction", "unique.identifier")
-write.csv(good.rearrangements, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/all_passed_snowman_calls.csv"
-          , row.names = F, quote = F)
+good.rearrangements <- total.rearrangements[(total.rearrangements$SPAN > 1000 | total.rearrangements$SPAN == -1) & total.rearrangements[, "TUMALT"] > 1 & 
+                                                     (total.rearrangements[, "TUMALT"] / total.rearrangements[, "TUMCOV"] > .05 )
+                                             | total.rearrangements[, "TUMCOV"] > 5 & (total.rearrangements[,"TUMALT"] / total.rearrangements[, "TUMCOV"] > .10 ) , ]
 
+rearrangements <- good.rearrangements
+## removes NAs
+rearrangements[is.na(rearrangements$gene1), "gene1"] <- ""
+rearrangements[is.na(rearrangements$gene2), "gene2"] <- ""
+rearrangements[is.na(rearrangements$gene1_100kb), "gene1_100kb"] <- ""
+rearrangements[is.na(rearrangements$gene2_100kb), "gene2_100kb"] <- ""
 
+## creates column that has gene name if within gene, otherwise genes within 100kb
+rearrangements$gene1_or_100kb <- rearrangements$gene1
+gene1.idx <- rearrangements$gene1 == "" & rearrangements$gene1_100kb != ""
+rearrangements$gene1_or_100kb[gene1.idx] <- rearrangements$gene1_100kb[gene1.idx]
 
-## check snowman vs dranger calls
-disc.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_disc_calls.txt", stringsAsFactors = F)
-disc.dranger <- FilterMaf(disc.dranger, "MEN0049", "individual", F)
-ph.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_ph_calls.txt", stringsAsFactors = F)
-
-disc.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "Discovery", ]$Pair.Name), ]
-ph.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "PH", ]$Pair.Name), ]
-
-for (i in 1:nrow(disc.good.rearrangements)){
-    temp <- disc.good.rearrangements[i, "Sample"]
-    temp <- substr(temp, 1, 7)
-    disc.good.rearrangements[i, "Sample"] <- temp
-}
-
-
-discovery.comparison <- disc.dranger[, c(1,3,5,6,8)]
-discovery.comparison[, 6] <- "dranger"
-rownames(discovery.comparison) <- seq(nrow(discovery.comparison))
-
-for (i in 1:nrow(disc.good.rearrangements)){
-    matches <- discovery.comparison[discovery.comparison$individual == disc.good.rearrangements$Sample[i] & discovery.comparison$chr1 == disc.good.rearrangements$chr1[i]
-                                    & discovery.comparison$pos1 %in% seq(from = disc.good.rearrangements$pos1[i] -3,length.out = 6), ]
-    if (nrow(matches) == 0){
-        discovery.comparison <- rbind(discovery.comparison, c(disc.good.rearrangements[i, 28], disc.good.rearrangements[i, 1], 
-                                                              disc.good.rearrangements[i, 2], disc.good.rearrangements[i, 4], disc.good.rearrangements[i,5], "snowman"))
-    }else{
-        discovery.comparison[as.numeric(rownames(matches)[1]), 6] <- "both"
-    }
-}
-
-discovery.comparison <- discovery.comparison[order(discovery.comparison$individual, as.numeric(discovery.comparison$chr1), as.numeric(discovery.comparison$pos1)),]
-write.csv(discovery.comparison, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/discovery_cohort_comparison.csv", row.names = F, quote = F)
-
-
-
-
-
-##Keep only relevant columns
-rearrangements <- good.rearrangements[, c(28, 1,2,31,35,37, 4,5,32, 33,34,36,38, 29)]
-rearrangements[, 15:16] <- "Intergenic"
-colnames(rearrangements)[15:16] <- c("gene1.or.cancer", "gene2.or.cancer")
-
-## Creats columns for genes or cancer genes within 100kb
-for (i in 1:nrow(rearrangements)){
-    if (rearrangements$gene1[i] == "Intergenic"){
-        if (rearrangements$cancer_genes100kb_1[i] != "none"){
-            rearrangements$gene1.or.cancer[i] <- rearrangements$cancer_genes100kb_1[i]
-        }
-    }else{
-        rearrangements$gene1.or.cancer[i] <- rearrangements$gene1[i]
-    }
-    if (rearrangements$gene2[i] == "Intergenic"){
-        if (rearrangements$cancer_genes100kb_2[i] != "none"){
-            rearrangements$gene2.or.cancer[i] <- rearrangements$cancer_genes100kb_2[i]
-        }
-    }else{
-        rearrangements$gene2.or.cancer[i] <- rearrangements$gene2[i]
-    }
-}
-
-rearrangements[, 17] <- NA
-## Create cancer-related column for easy viewing
-for (i in 1:nrow(rearrangements)){
-    temp1 <- rearrangements$cancer_gene1[i]
-    temp2 <- rearrangements$cancer_gene2[i]
-    if (temp1 == "none"){
-        if (temp2 == "none"){
-            rearrangements[i, 17] <- "none"
-        }else{
-            rearrangements[i, 17] <- temp2
-        }
-    }else{
-        if (temp2 == "none"){
-            rearrangements[i, 17] <- temp1
-        }else{
-            rearrangements[i, 17] <- paste(temp1, temp2, sep = "_")
-        }
-    }
-}
-colnames(rearrangements)[17] <- "cancer.related"
-
+rearrangements$gene2_or_100kb <- rearrangements$gene2
+gene2.idx <- rearrangements$gene2 == "" & rearrangements$gene2_100kb != ""
+rearrangements$gene2_or_100kb[gene2.idx] <- rearrangements$gene2_100kb[gene2.idx]
 
 ## gets all genes, using gene or cancer gene 100k for gene category if intergenic
-genes1 <- rearrangements[,c(1,2,3,15, 7,8,16)]
-genes2 <- rearrangements[,c(1,7,8,16,2,3,15)]
+genes1 <- rearrangements[,c("sample", "chr1", "pos1", "gene1_or_100kb", "chr2", "pos2", "gene2_or_100kb")]
+genes2 <- rearrangements[,c("sample", "chr2", "pos2", "gene2_or_100kb", "chr1", "pos1", "gene1_or_100kb")]
 colnames(genes2) <- c("sample", "chr", "pos", "gene", "partner.chr", "partner.pos", "partner.gene")
 colnames(genes1) <- c("sample", "chr", "pos", "gene", "partner.chr", "partner.pos", "partner.gene")
 genes.all <- rbind(genes1, genes2)
 
 ## Plot recurrence-unique rearrangements per gene
 genes.modified <- genes.all
-genes.modified <- FilterMaf(genes.modified, total.list, "sample")
-genes.modified <- FilterMaf(genes.modified, "Intergenic", "gene", F)
+genes.modified <- FilterMaf(genes.modified, "", "gene", F)
 genes.modified <- PerSampleMaf(genes.modified, "gene", "sample")
 genes.modified.2 <- ReccurentMaf(genes.modified, "gene")
 genes.modified.2 <- genes.modified.2[order(genes.modified.2$sample), ]
@@ -153,27 +48,26 @@ write.csv(genes.modified.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda
 
 
 ## Gets all recurrent rearrangments between pairs of genes. Replaces intergenic regions with nearby cancer genes
-gene.rearrangements <- FilterMaf(rearrangements, "Intergenic", "gene1", F)
-gene.rearrangements <- FilterMaf(gene.rearrangements, "Intergenic", "gene2", F)
+gene.rearrangements <- FilterMaf(rearrangements, "", "gene1_or_100kb", F)
+gene.rearrangements <- FilterMaf(gene.rearrangements, "", "gene2_or_100kb", F)
 matches <- NULL
 for (i in 1:nrow(gene.rearrangements)){
     # Gets first gene-gene pair
-    current.gene <- gene.rearrangements$gene1.or.cancer[i]
+    current.gene <- gene.rearrangements$gene1_or_100kb[i]
     gene.chr <- gene.rearrangements$chr1[i]
     gene.pos <- gene.rearrangements$pos1[i]
-    current.target <- gene.rearrangements$gene2.or.cancer[i]
+    current.target <- gene.rearrangements$gene2_or_100kb[i]
     target.chr <- gene.rearrangements$chr2[i]
     target.pos <- gene.rearrangements$pos2[i]
-    #youve.got.cancer <- gene.rearrangements$cancer.related[i]
-    friends <- FilterMaf(gene.rearrangements[-i,], current.gene, "gene1.or.cancer")
+    friends <- FilterMaf(gene.rearrangements[-i,], current.gene, "gene1_or_100kb")
     
     #checks to see if any other instances of same starter gene have same target
     if (nrow(friends) > 0){
-        idx <- friends$gene2 %in% current.target
+        idx <- friends$gene2_or_100kb %in% current.target
         close.friends <- friends[idx,]
         if (nrow(close.friends) > 0){
             temp <- c(rownames(gene.rearrangements)[i], current.gene, gene.chr, gene.pos, current.target, 
-                      target.chr, target.pos, gene.rearrangements$Sample[i])
+                      target.chr, target.pos, gene.rearrangements$sample[i])
             matches <- c(matches, temp)
             
         }
@@ -231,6 +125,79 @@ for (i in 1:nrow(x)){
     }
     
 } 
+
+## Figures
+
+
+plotting.matrix <- events.matrix
+for (i in 1:nrow(plotting.matrix)){
+    new <- strsplit(plotting.matrix$sample[i], "[.]")[[1]][1]
+    plotting.matrix$sample[i] <- new
+}
+
+grade <- c(rep("LG", 109), rep("HG", nrow(plotting.matrix) - 109))
+outlier <- plotting.matrix$sample == "MEN0048G-P1"
+grade.and.outlier <- grade
+grade.and.outlier[outlier] <- "MEN0048"
+plotting.matrix <- cbind(plotting.matrix, grade, grade.and.outlier)
+
+
+## Length distribution analysis
+ggplot(data=plotting.matrix[plotting.matrix$SPAN != -1, ], aes(x=SPAN)) + geom_freqpoly()
+
+## event classification
+ggplot(data=plotting.matrix, aes(x= SPAN == -1)) + geom_bar() + labs(title = "Translocations vs Intrachromosomal Rearrangements", x = )
+
+## event type by grade
+ggplot(data=plotting.matrix, aes(x=meerdog, fill = grade)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
+
+## split by outlier
+ggplot(data=plotting.matrix, aes(x=meerdog, fill = grade.and.outlier)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count") + scale_fill_grey()
+
+## event type grade separate
+ggplot(data=plotting.matrix[plotting.matrix$grade == "LG",], aes(x=meerdog)) + geom_bar(width = .5)+ labs(title= "Low grade samples", x = "Event Type", y = "count")
+ggplot(data=plotting.matrix[plotting.matrix$grade == "HG",], aes(x=meerdog)) + geom_bar(width = .5)+ labs(title= "High grade samples", x = "Event Type", y = "count")
+
+table(plotting.matrix[plotting.matrix$SPAN == -1, ]$sample)
+## compare ratio of MMEJ vs NHEJ in low and high grade
+fisher.test(table(plotting.matrix[plotting.matrix$meerdog != "MMBIR", ]$meerdog, plotting.matrix[plotting.matrix$meerdog != "MMBIR", ]$grade))
+
+
+
+
+## example plots
+
+testing.frame <- data.frame(1,30,20,40)
+colnames(testing.frame) <- c("intergenic", "translocation", "insertion", "deletion")
+
+testing.frame.1 <- data.frame(c(1,30,20,40),c("intergenic", "translocation", "insertion", "deletion")) 
+colnames(testing.frame.1) <- c("values", "event_type")
+
+## figures
+ggplot(data=testing.frame.1, aes(x = event_type, y = values)) +
+    geom_bar(stat="identity", width = .5) + labs(title= "Event type comparison", x = "Event Type", y = "count")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#old snowman calcs
+## Gets centromere position
+centromere.positions <- read.delim("C:/Users/Noah/Onedrive/Work/Coding/R/dbs/centromere_positions.txt", stringsAsFactors = F, comment.char = "", header = T)
+centromere.positions <- centromere.positions[order(centromere.positions$chrom), ]
+mtrx <- matrix(NA, 24, 3)
+colnames(mtrx) <- c("chr", "start", "end")
+
 
 
 pretty <- x[is.na(x[[9]]), ]
@@ -361,26 +328,97 @@ for (i in 1:39){
     points(rep(i, length(vals)), vals, col = "blue", pch = 16)
 }
 
+## Plots
 
-## Length distribution analysis
-hist(data$span, 30, xlab = "rearrangmenet distance", main = "Length Distribution")
+# takes max and min of possible centromere positions
+for (i in 1:24){
+    tmp <- unique(centromere.positions$chrom)[i]
+    vals <- FilterMaf(centromere.positions, tmp, "chrom")
+    mtrx[i,1] <- i
+    mtrx[i,2] <- min(vals$chromStart)
+    mtrx[i,3] <- max(vals$chromEnd)
+}
+cents <- data.frame(mtrx)
 
-## inter vs intra-chromosomal 
+## check snowman vs dranger calls
+disc.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_disc_calls.txt", stringsAsFactors = F)
+disc.dranger <- FilterMaf(disc.dranger, "MEN0049", "individual", F)
+ph.dranger <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/dRanger/old/dranger_WGS_ph_calls.txt", stringsAsFactors = F)
+
+disc.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "Discovery", ]$Pair.Name), ]
+ph.good.rearrangements <- good.rearrangements[good.rearrangements$Sample %in% unique(master.table[master.table$Cohort == "PH", ]$Pair.Name), ]
+
+for (i in 1:nrow(disc.good.rearrangements)){
+    temp <- disc.good.rearrangements[i, "Sample"]
+    temp <- substr(temp, 1, 7)
+    disc.good.rearrangements[i, "Sample"] <- temp
+}
+
+
+discovery.comparison <- disc.dranger[, c(1,3,5,6,8)]
+discovery.comparison[, 6] <- "dranger"
+rownames(discovery.comparison) <- seq(nrow(discovery.comparison))
+
+for (i in 1:nrow(disc.good.rearrangements)){
+    matches <- discovery.comparison[discovery.comparison$individual == disc.good.rearrangements$Sample[i] & discovery.comparison$chr1 == disc.good.rearrangements$chr1[i]
+                                    & discovery.comparison$pos1 %in% seq(from = disc.good.rearrangements$pos1[i] -3,length.out = 6), ]
+    if (nrow(matches) == 0){
+        discovery.comparison <- rbind(discovery.comparison, c(disc.good.rearrangements[i, 28], disc.good.rearrangements[i, 1], 
+                                                              disc.good.rearrangements[i, 2], disc.good.rearrangements[i, 4], disc.good.rearrangements[i,5], "snowman"))
+    }else{
+        discovery.comparison[as.numeric(rownames(matches)[1]), 6] <- "both"
+    }
+}
+
+discovery.comparison <- discovery.comparison[order(discovery.comparison$individual, as.numeric(discovery.comparison$chr1), as.numeric(discovery.comparison$pos1)),]
+write.csv(discovery.comparison, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/discovery_cohort_comparison.csv", row.names = F, quote = F)
 
 
 
 
 
 
+rearrangements[, 38:39] <- "Intergenic"
+colnames(rearrangements)[38:39] <- c("gene1.or.cancer", "gene2.or.cancer")
 
+## Creats columns for genes or cancer genes within 100kb
+for (i in 1:nrow(rearrangements)){
+    if (rearrangements$gene1[i] == "Intergenic"){
+        if (rearrangements$cancer_genes100kb_1[i] != "none"){
+            rearrangements$gene1.or.cancer[i] <- rearrangements$cancer_genes100kb_1[i]
+        }
+    }else{
+        rearrangements$gene1.or.cancer[i] <- rearrangements$gene1[i]
+    }
+    if (rearrangements$gene2[i] == "Intergenic"){
+        if (rearrangements$cancer_genes100kb_2[i] != "none"){
+            rearrangements$gene2.or.cancer[i] <- rearrangements$cancer_genes100kb_2[i]
+        }
+    }else{
+        rearrangements$gene2.or.cancer[i] <- rearrangements$gene2[i]
+    }
+}
 
-
-
-
-
-
-
-
+rearrangements[, 17] <- NA
+## Create cancer-related column for easy viewing
+for (i in 1:nrow(rearrangements)){
+    temp1 <- rearrangements$cancer_gene1[i]
+    temp2 <- rearrangements$cancer_gene2[i]
+    if (temp1 == "none"){
+        if (temp2 == "none"){
+            rearrangements[i, 17] <- "none"
+        }else{
+            rearrangements[i, 17] <- temp2
+        }
+    }else{
+        if (temp2 == "none"){
+            rearrangements[i, 17] <- temp1
+        }else{
+            rearrangements[i, 17] <- paste(temp1, temp2, sep = "_")
+        }
+    }
+}
+colnames(rearrangements)[17] <- "cancer.related"
 
 
 
