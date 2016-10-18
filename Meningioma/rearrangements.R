@@ -1,7 +1,8 @@
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
 
-total.rearrangements <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Rearrangements/men.tsv", stringsAsFactors = F)
+total.rearrangements <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Rearrangements/v117.events.tsv", stringsAsFactors = F, header = T)
+annotated <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/Rearrangements/events.under500cut.txt", stringsAsFactors = F)
 
 ## Keeps only those that pass QC filter
 ## If span is greater than 1000 bases, allows for 5% allelic fraction and 2 reads
@@ -10,8 +11,36 @@ good.rearrangements <- total.rearrangements[(total.rearrangements$SPAN > 1000 | 
                                                      (total.rearrangements[, "TUMALT"] / total.rearrangements[, "TUMCOV"] > .05 )
                                              | total.rearrangements[, "TUMCOV"] > 5 & (total.rearrangements[,"TUMALT"] / total.rearrangements[, "TUMCOV"] > .10 ) , ]
 
+## combine annotation of event type from poorly formatted sheet
+good.rearrangements$event.type <- NA
+good.rearrangements$complex <- NA
+for (i in 1:nrow(good.rearrangements)){
+    chr1 <- good.rearrangements$chr1[i]
+    chr2 <- good.rearrangements$chr2[i]
+    pos1 <- good.rearrangements$pos1[i]
+    pos2 <- good.rearrangements$pos2[i]
+    sample <- good.rearrangements$Sample[i]
+    matches <- annotated[annotated$chr1 == chr1 & annotated$pos1 == pos1 & annotated$chr2 == chr2 & annotated$pos2 == pos2 & annotated$Sample == sample,]
+    if (nrow(matches) == 1){
+        good.rearrangements$even.typet[i] <- matches$mechanism
+        good.rearrangements$complex[i] <- matches$complex.event
+    }else if (nrow(matches) > 1){
+        stop("error")
+    }else{
+        ## do nothing
+    }
+}
+
+good.rearrangements$event.type.simple <- good.rearrangements$event.type
+good.rearrangements$event.type.simple[good.rearrangements$SPAN == -1] <- "translocation"
+good.rearrangements$complex.simple <- good.rearrangements$complex
+good.rearrangements$complex.simple[good.rearrangements$complex.simple != ""] <- "complex.event"
+good.rearrangements$complex.simple[good.rearrangements$complex.simple == ""] <- "simple.event"
 rearrangements <- good.rearrangements
-## removes NAs
+
+rearrangements <- meerdog(rearrangements)
+
+## removes NAs, look for multiple hits
 rearrangements[is.na(rearrangements$gene1), "gene1"] <- ""
 rearrangements[is.na(rearrangements$gene2), "gene2"] <- ""
 rearrangements[is.na(rearrangements$gene1_100kb), "gene1_100kb"] <- ""
@@ -26,9 +55,46 @@ rearrangements$gene2_or_100kb <- rearrangements$gene2
 gene2.idx <- rearrangements$gene2 == "" & rearrangements$gene2_100kb != ""
 rearrangements$gene2_or_100kb[gene2.idx] <- rearrangements$gene2_100kb[gene2.idx]
 
-## gets all genes, using gene or cancer gene 100k for gene category if intergenic
-genes1 <- rearrangements[,c("sample", "chr1", "pos1", "gene1_or_100kb", "chr2", "pos2", "gene2_or_100kb")]
-genes2 <- rearrangements[,c("sample", "chr2", "pos2", "gene2_or_100kb", "chr1", "pos1", "gene1_or_100kb")]
+rearrangements.duplicates <- rearrangements
+rearrangements.duplicates$remove <- 0
+
+## takes any sample with multiple genes within range in gene1, converts to duplicate row with each gene as its own row
+for (i in 1:nrow(rearrangements)){
+    genes <- strsplit(rearrangements$gene1_or_100kb[i], ",")[[1]]
+    if (length(genes) > 1){
+        row <- rearrangements.duplicates[i, ]
+        for (j in 1:length(genes)){
+            row$gene1_or_100kb <- genes[j]
+            rearrangements.duplicates <- rbind(rearrangements.duplicates, row)
+        }
+        rearrangements.duplicates$remove[i] <- 1
+    }
+}
+
+rearrangements.duplicates <- rearrangements.duplicates[rearrangements.duplicates$remove != 1, ]
+## same thing for gene 2
+
+rearrangements.duplicates.duplicates <- rearrangements.duplicates
+rearrangements.duplicates.duplicates$remove <- 0
+
+## takes any sample with multiple genes within range in gene2, converts to duplicate row with each gene as its own row
+for (i in 1:nrow(rearrangements.duplicates)){
+    genes <- strsplit(rearrangements.duplicates$gene2_or_100kb[i], ",")[[1]]
+    if (length(genes) > 1){
+        row <- rearrangements.duplicates.duplicates[i, ]
+        for (j in 1:length(genes)){
+            row$gene2_or_100kb <- genes[j]
+            rearrangements.duplicates.duplicates <- rbind(rearrangements.duplicates.duplicates, row)
+        }
+        rearrangements.duplicates.duplicates$remove[i] <- 1
+    }
+}
+
+rearrangements.duplicates.duplicates <- rearrangements.duplicates.duplicates[rearrangements.duplicates.duplicates$remove != 1, ]
+
+## gets all genes, using gene or  gene 100k for gene category if intergenic
+genes1 <- rearrangements.duplicates.duplicates[,c("sample", "chr1", "pos1", "gene1_or_100kb", "chr2", "pos2", "gene2_or_100kb")]
+genes2 <- rearrangements.duplicates.duplicates[,c("sample", "chr2", "pos2", "gene2_or_100kb", "chr1", "pos1", "gene1_or_100kb")]
 colnames(genes2) <- c("sample", "chr", "pos", "gene", "partner.chr", "partner.pos", "partner.gene")
 colnames(genes1) <- c("sample", "chr", "pos", "gene", "partner.chr", "partner.pos", "partner.gene")
 genes.all <- rbind(genes1, genes2)
@@ -41,10 +107,9 @@ genes.modified.2 <- ReccurentMaf(genes.modified, "gene")
 genes.modified.2 <- genes.modified.2[order(genes.modified.2$sample), ]
 PlotMaf(genes.modified.2, "gene")
 
-genes.modified.2 <- genes.modified.2[order(genes.modified.2$sample), ]
-death.list <- c()
+genes.modified.2 <- genes.modified.2[order(genes.modified.2$gene), ]
 ##Investigate multiple hits
-write.csv(genes.modified.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/targetted_genes.csv", row.names = F)
+write.csv(genes.modified.2, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/multiple_hits.csv", row.names = F)
 
 
 ## Gets all recurrent rearrangments between pairs of genes. Replaces intergenic regions with nearby cancer genes
@@ -126,56 +191,122 @@ for (i in 1:nrow(x)){
     
 } 
 
+
+
+
+
+
+
+
 ## Figures
+#remove NAs
+plotting.matrix <- rearrangements
+plotting.matrix <- plotting.matrix[plotting.matrix$event.type != "", ]
+plotting.matrix <- plotting.matrix[!is.na(plotting.matrix$event.type), ]
 
-
-plotting.matrix <- events.matrix
-for (i in 1:nrow(plotting.matrix)){
-    new <- strsplit(plotting.matrix$sample[i], "[.]")[[1]][1]
-    plotting.matrix$sample[i] <- new
-}
-
-grade <- c(rep("LG", 109), rep("HG", nrow(plotting.matrix) - 109))
-outlier <- plotting.matrix$sample == "MEN0048G-P1"
+## reclassify based on grade, as well as hyper-rearranged sample
+lowgrade.num <- sum(plotting.matrix$Sample %in% unique(plotting.matrix$Sample)[1:9])
+grade <- c(rep("LG", lowgrade.num), rep("HG", nrow(plotting.matrix) - lowgrade.num))
+outlier <- plotting.matrix$Sample == "MEN0048G-P1"
 grade.and.outlier <- grade
 grade.and.outlier[outlier] <- "MEN0048"
 plotting.matrix <- cbind(plotting.matrix, grade, grade.and.outlier)
 
+low.grade <- table(plotting.matrix[plotting.matrix$grade == "LG", ]$Sample)
+high.grade <- table(plotting.matrix[plotting.matrix$grade == "HG", ]$Sample)
 
-## Length distribution analysis
-ggplot(data=plotting.matrix[plotting.matrix$SPAN != -1, ], aes(x=SPAN)) + geom_freqpoly()
+mean(low.grade)
+mean(high.grade)
+median(low.grade)
+median(high.grade)
+high.grade.cleaned <- high.grade[-4]
 
-## event classification
-ggplot(data=plotting.matrix, aes(x= SPAN == -1)) + geom_bar() + labs(title = "Translocations vs Intrachromosomal Rearrangements", x = )
+wilcox.test(low.grade, high.grade)
+
+## for fixed analysis, taking percentage of translocations separately
+translocation.percent <- sum(plotting.matrix$event.type.simple == "translocation") / nrow(plotting.matrix)
+inversion.percent <- sum(plotting.matrix$event.type.simple == "inversion") / (nrow(plotting.matrix)) - sum(plotting.matrix$event.type.simple == "translocation"))
+deletion.percent <- sum(plotting.matrix$event.type.simple == "simple_deletion") / (nrow(plotting.matrix)) - sum(plotting.matrix$event.type.simple == "translocation"))
+duplication.percent <- sum(plotting.matrix$event.type.simple == "tandeum_dup") / (nrow(plotting.matrix)) - sum(plotting.matrix$event.type.simple == "translocation"))
+event.type.df <- data.frame(c("Translocation", "Deletion", "Inversion", "Duplication"), c(translocation.percent, inversion.percent, deletion.percent, duplication.percent))
+colnames(event.type.df) <- c("event.classification", "vals")
+ggplot(data=event.type.df, aes(x=event.classification, y=vals)) + geom_bar(stat="identity") + labs(title = "Translocations vs Intrachromosomal Rearrangements", x = "Event Type", y = "Count")
+
+
+## non-fixed analysis
+ggplot(plotting.matrix[plotting.matrix$event.type.simple != "balanced_translocation_intra", ], 
+       aes(x="", fill=event.type.simple))+ geom_bar(width = 1) + coord_polar("y") + theme(axis.text.x=element_blank())
+
 
 ## event type by grade
-ggplot(data=plotting.matrix, aes(x=meerdog, fill = grade)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
+plotting.matrix$event.type.simple <- factor(plotting.matrix$event.type.simple, levels = c("translocation", "simple_deletion", "inversion", "tandeum_dup", 
+                                                                                          "balanced_translocation_intra"))
+ggplot(data=plotting.matrix[plotting.matrix$event.type.simple != "balanced_translocation_intra", ], 
+       aes(x=event.type.simple)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
 
-## split by outlier
-ggplot(data=plotting.matrix, aes(x=meerdog, fill = grade.and.outlier)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count") + scale_fill_grey()
 
-## event type grade separate
+
+## complex events percentages
+x <- table(plotting.matrix$complex.simple)
+x[1] / (x[1] + x[2])
+complex.names.idx <- unique(plotting.matrix$sample) %in% plotting.matrix[plotting.matrix$complex.simple == "complex.event", ]$sample
+
+mean(table(plotting.matrix$sample)[complex.names.idx])
+mean(table(plotting.matrix$sample)[!complex.names.idx])
+median(table(plotting.matrix$sample)[complex.names.idx])
+median(table(plotting.matrix$sample)[!complex.names.idx])
+wilcox.test(table(plotting.matrix$sample)[complex.names.idx], table(plotting.matrix$sample)[!complex.names.idx])
+
+mean(table(plotting.matrix[plotting.matrix$complex.simple == "complex.event", ]$sample) / 
+ table(plotting.matrix[plotting.matrix$sample %in% unique(plotting.matrix$sample)[complex.names.idx], ]$sample))
+
+## Comparison of number of complex vs noncomplex events
+ggplot(data=plotting.matrix, aes(x=complex.simple)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count") + scale_fill_grey()
+
+## plot of events per sample that are complex
+plotting.matrix$Sample <- factor(plotting.matrix$Sample, levels=names(sort(table(plotting.matrix$Sample), decreasing = T)))
+ggplot(data=plotting.matrix[plotting.matrix$Sample %in% unique(plotting.matrix$Sample)[complex.names.idx], ], 
+       aes(x=Sample, fill = complex.simple)) + geom_bar(width = .5)+ scale_fill_grey() + labs(title= "Event type comparison", x = "Event Type", y = "count")
+
+## log scale adjacent graph sorted by presence of complex event or not
+ggplot(data=plotting.matrix, aes(x=Sample, fill = complex.simple)) + geom_bar(width = .5, position = "dodge")+ scale_fill_grey() + 
+labs(title= "Event type comparison", x = "Samples", y = "Rearrangement count") + theme(axis.text.x=element_blank()) +
+scale_y_log10()
+
+
+## create stacked bar with percentages instead of absolute counts
+plotting.matrix$Sample <- as.character(plotting.matrix$Sample)
+complex.num <- c()
+simple.num <- c()
+samples <- unique(plotting.matrix$Sample) 
+for (i in 1:length(samples)){
+    complex.num <- c(complex.num, sum(plotting.matrix[plotting.matrix$complex.simple == "complex.event", ]$Sample == samples[i]))
+    simple.num <- c(simple.num, sum(plotting.matrix[plotting.matrix$complex.simple == "simple.event", ]$Sample == samples[i]))
+}
+
+complex.df <- data.frame(samples, complex.num / (complex.num + simple.num), simple.num / (complex.num + simple.num))
+
+## meerdog event mechanism by grade
+plotting.matrix$meerdog <- factor(plotting.matrix$meerdog, levels=c("NHEJ", "MMEJ", "MMBIR", "SSR"))
+ggplot(data=plotting.matrix, aes(x=meerdog, fill=grade)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
+
+
+## look at possible fills and covariates
+ggplot(data=plotting.matrix, aes(x=meerdog, fill=complex.simple)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
+ggplot(data=plotting.matrix, aes(x=event.type.simple, fill=complex.simple)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
+ggplot(data=plotting.matrix, aes(x=event.type.simple, fill=grade.and.outlier)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count")
+
+
+
+fisher.test(table(plotting.matrix[plotting.matrix$Sample == "MEN0048G-P1", ]$event.type.simple == "translocation", 
+                  plotting.matrix[plotting.matrix$Sample == "MEN0048G-P1", ]$complex.simple))
+
+ggplot(data=plotting.matrix, aes(x=SPAN==-1, fill=complex.simple)) + geom_bar(width = .5) + scale_fill_grey() +
+    labs(title= "Event type comparison", x = "Event Type", y = "count")
+
+## meerdog event mechanism with grade separate
 ggplot(data=plotting.matrix[plotting.matrix$grade == "LG",], aes(x=meerdog)) + geom_bar(width = .5)+ labs(title= "Low grade samples", x = "Event Type", y = "count")
 ggplot(data=plotting.matrix[plotting.matrix$grade == "HG",], aes(x=meerdog)) + geom_bar(width = .5)+ labs(title= "High grade samples", x = "Event Type", y = "count")
-
-table(plotting.matrix[plotting.matrix$SPAN == -1, ]$sample)
-## compare ratio of MMEJ vs NHEJ in low and high grade
-fisher.test(table(plotting.matrix[plotting.matrix$meerdog != "MMBIR", ]$meerdog, plotting.matrix[plotting.matrix$meerdog != "MMBIR", ]$grade))
-
-
-
-
-## example plots
-
-testing.frame <- data.frame(1,30,20,40)
-colnames(testing.frame) <- c("intergenic", "translocation", "insertion", "deletion")
-
-testing.frame.1 <- data.frame(c(1,30,20,40),c("intergenic", "translocation", "insertion", "deletion")) 
-colnames(testing.frame.1) <- c("values", "event_type")
-
-## figures
-ggplot(data=testing.frame.1, aes(x = event_type, y = values)) +
-    geom_bar(stat="identity", width = .5) + labs(title= "Event type comparison", x = "Event Type", y = "count")
 
 
 

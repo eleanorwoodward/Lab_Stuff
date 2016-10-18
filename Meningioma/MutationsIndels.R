@@ -84,6 +84,7 @@ bwh.table <- bwh.table[order(bwh.table$Simple.Histopath.Grade, -bwh.table$NF2.sn
 
 write.csv(bwh.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/BWH.Comut/bhw.all_members.csv")
 
+
 ## check overlap between genes and NF2
 bwh.snindels[bwh.snindels$Tumor_Sample_Barcode %in% bwh.snindels[bwh.snindels$Hugo_Symbol == "RICTOR", ]$Tumor_Sample_Barcode, ]
 
@@ -97,6 +98,10 @@ disc.snindels.2 <- PerSampleMaf(disc.snindels.2, "Hugo_Symbol")
 disc.snindels.2 <- ReccurentMaf(disc.snindels.2, "Hugo_Symbol")
 write.csv(disc.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_mutated_at_least_twice_disc.csv", row.names = F)
 
+
+
+
+## statistics for paper
 
 
 ## Create pair name lists for calculations
@@ -163,11 +168,12 @@ write.csv(comut, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC
 
 total.table <- master.table[master.table$Analsysis.Set. == 1 | master.table$Cohort == "PH", ]
 
-total.table <- total.table[order(total.table$SNO.Heatmap.Grade, -total.table$chr22.loss), ]
+total.table <- total.table[order(total.table$Heatmap.Grade, -total.table$chr22.loss), ]
 
-write.table(total.table[1:55, 3], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/angiomatus.clustering.order.SNO.txt", sep = "\t", row.names = F, quote = F)
+write.table(total.table[, 3], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/finalized_clustering_order.txt",
+            sep = "\t", row.names = F, quote = F)
 
-write.csv(total.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/angiomatus.clustering.SNO.comut.csv")
+write.csv(total.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/finalized_clustering_order_comut.txt")
 
 disc.table <- master.table[master.table$Analsysis.Set. == 1, ]
 disc.table <- disc.table[!is.na(disc.table$Analsysis.Set.), ]
@@ -179,10 +185,10 @@ massive.table <- massive.table[order(massive.table$Grade, -massive.table$chr22.l
                                      -massive.table$TRAF7, -massive.table$KLF4, -massive.table$AKT1, -massive.table$SMO), ]
 write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.csv")
 
-## Simple grades, missing data compacted
+## Simple grades, missing data compacted: sort by TRAF7 plotting
 massive.table <- massive.table[order(massive.table$Simple.Grade, -massive.table$chr22.loss, -massive.table$NF2.snp.indel.rearrangement,
                                      -massive.table$TRAF7, -massive.table$KLF4, -massive.table$AKT1, -massive.table$SMO), ]
-write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.v2.csv")
+write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.new_yale.csv")
 
 ## all grades, unclear at end
 massive.table <- massive.table[order(massive.table$Grade, -massive.table$chr22.loss, -massive.table$NF2.snp.indel.rearrangement,
@@ -244,19 +250,116 @@ sum(massive.table$Simple.Grade == "II" & (massive.table$NF2.snp.indel.rearrangem
 sum(massive.table$Simple.Grade == "II" & massive.table$TKAS == 1)
 
 
+
+## generate csv with all mutation comparisons for master table
+hg.snps <- discovery.duplicate.snps
+hg.snps.low.af <- hg.snps[hg.snps$i_tumor_f < .1, ]
+hg.snps.coding <- hg.snps[hg.snps$Variant_Classification != "Silent", ]
+hg.snps.coding.high.af <- hg.snps.coding[hg.snps.coding$i_tumor_f > .09999, ]
+
+hg.names <- sort(unique(hg.snps$Tumor_Sample_Barcode))
+all.muts <- as.numeric(table(hg.snps$Tumor_Sample_Barcode))
+all.muts.low.af <-as.numeric(table(hg.snps.low.af$Tumor_Sample_Barcode))
+coding.muts.high.af <- as.numeric(table(hg.snps.coding.high.af$Tumor_Sample_Barcode))
+
+## same for low-grade
+lg.snps <- ph.snps[ph.snps$Variant_Classification %in% c(snp.variants, "Silent"), ]
+lg.snps <- lg.snps[lg.snps$Tumor_Sample_Barcode %in% sort(unique(lg.snps$Tumor_Sample_Barcode))[-(1:39)], ]
+lg.snps.low.af <- lg.snps[lg.snps$i_tumor_f < .1, ]
+lg.snps.coding <- lg.snps[lg.snps$Variant_Classification != "Silent", ]
+lg.snps.coding.high.af <- lg.snps.coding[lg.snps.coding$i_tumor_f > .09999, ]
+
+lg.names <- sort(unique(lg.snps$Tumor_Sample_Barcode))
+all.muts.lg <- as.numeric(table(lg.snps$Tumor_Sample_Barcode))
+all.muts.low.af.lg <-as.numeric(table(lg.snps.low.af$Tumor_Sample_Barcode))
+coding.muts.high.af.lg <- as.numeric(table(lg.snps.coding.high.af$Tumor_Sample_Barcode))
+
+
+## MEN0045-P3 has no low allelic fraction mutations
+## MEN0045-P4 has no coding snps
+## MEN0014 has no low.af muts
+
+comparison.csv <- data.frame(hg.names, all.muts, c(all.muts.low.af, 0), c(coding.muts.high.af, 0))
+write.csv(comparison.csv, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/comparison.csv")
+
+comparison.csv.lg <- data.frame(lg.names, all.muts.lg, c(all.muts.low.af.lg, 0), coding.muts.high.af.lg)
+write.csv(comparison.csv.lg, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/comparison.lg.csv")
+
 ## Mutation incidence comparison
 hg.unique.snps <- FilterMaf(discovery.coding.snps, c(hg.list, "MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
-hg.unique.snps <- hg.unique.snps[hg.unique.snps$Tumor_Sample_Barcode > .1, ]
+hg.unique.snps <- hg.unique.snps[hg.unique.snps$i_tumor_f < .1, ]
 x <- table(hg.unique.snps$Tumor_Sample_Barcode)
 dimnames(x) <- NULL
 x <- x[-13]
 
 
 temp <- ph.coding.snps[ph.coding.snps$i_tumor_f > .1, ]
-y <- table(temp$Tumor_Sample_Barcode)
+y <- table(ph.coding.snps$Tumor_Sample_Barcode)
 dimnames(y) <- NULL
-y <- y[-(1:34)]
+y <- y[-(1:38)]
 t.test(x, y)
+
+## calculations for signficant difference in mutation rates
+t.test(total.table[total.table$Simple.Grade == 1, ]$nonsynoymous.mutations.high.af,
+       total.table[total.table$Simple.Grade == 2, ]$nonsynoymous.mutations.high.af )
+
+rad.table <- master.table[master.table$Radiation.analysis.set == 1, ]
+rad.table <- rad.table[!is.na(rad.table$Radiation.analysis.set), ]
+
+wilcox.test(rad.table[rad.table$XRT..preop.radiation == 1, ]$nonsynoymous.mutations.high.af, 
+       rad.table[rad.table$XRT..preop.radiation == 0, ]$nonsynoymous.mutations.high.af)
+
+wilcox.test(rad.table[rad.table$XRT..preop.radiation == 1, ]$total.muts, 
+       rad.table[rad.table$XRT..preop.radiation == 0, ]$total.muts)
+
+wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$nonsynoymous.mutations.high.af,
+       disc.table[disc.table$NF2.snp.indel.rearrangement == 0, ]$nonsynoymous.mutations.high.af, )
+
+wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$nonsynoymous.mutations.high.af,
+            disc.table[disc.table$NF2.snp.indel.rearrangement == 0, ]$nonsynoymous.mutations.high.af)
+
+## copy number
+
+wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$percent.disruption,
+            disc.table[disc.table$NF2.snp.indel.rearrangement == 0, ]$percent.disruption)
+
+wilcox.test(disc.table[disc.table$chr22.loss == 1, ]$percent.disruption,
+            disc.table[disc.table$chr22.loss == 0, ]$percent.disruption)
+
+wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$percent.disruption,
+            disc.table[disc.table$NF2.snp.indel.rearrangement == 0, ]$percent.disruption)
+
+wilcox.test(total.table[total.table$Simple.Grade == 1, ]$percent.disruption,
+            total.table[total.table$Simple.Grade == 2, ]$percent.disruption)
+
+wilcox.test(disc.table[disc.table$XRT..preop.radiation == 1, ]$percent.disruption,
+            disc.table[disc.table$XRT..preop.radiation == 0, ]$percent.disruption)
+## rearrangements
+
+wg.table <- master.table[master.table$Sequencing == "WGS", ]
+
+fisher.test(table(wg.table$complex.event, wg.table$chr22.loss))
+wilcox.test(wg.table[wg.table$NF2.snp.indel.rearrangement == 1, ]$rearrangement.burden, wg.table[wg.table$NF2.snp.indel.rearrangement == 0, ]$rearrangement.burden )
+
+
+fisher.test(table(wg.table$complex.event, wg.table$XRT..preop.radiation))
+wilcox.test(wg.table[wg.table$XRT..preop.radiation == 1, ]$rearrangement.burden, wg.table[wg.table$XRT..preop.radiation == 0, ]$rearrangement.burden )
+
+
+## fisher's tests
+fisher.test(table(total.table$NF2.snp.indel, total.table$chr22.loss, dnn = c("NF2 status", "chr22 status")))
+
+# check if statistically signficant difference in cohorts between concurrence of nf2/chr22
+counts <- NULL
+counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement != 0 & ph.table$chr22.loss == 1))
+counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 1 & hg.table$chr22.loss == 1))
+counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement == 0 & ph.table$chr22.loss == 1))
+counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 0 & hg.table$chr22.loss == 1))
+
+fisher.test(matrix(counts,2,2 ))
+
+fisher.test(table(total.table$Chr1.loss, total.table$chr22.loss))
+
 
 ## generate vals for prism plots
 master.table[master.table$Analsysis.Set. == 1 & master.table$Grade == "II" & master.table$Subtype != "Rhabdoid", ]$nonsynoymous.mutations
@@ -273,19 +376,6 @@ lg.coding.snps <- FilterMaf(ph.snps, c("Silent", snp.variants), "Variant_Classif
 PlotMaf(disc.snindels, "Hugo_Symbol", percent = 5)
 
 
-## fisher's tests
-fisher.test(table(total.table$NF2.snp.indel, total.table$chr22.loss, dnn = c("NF2 status", "chr22 status")))
-
-# check if statistically signficant difference in cohorts between concurrence of nf2/chr22
-counts <- NULL
-counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement != 0 & ph.table$chr22.loss == 1))
-counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 1 & hg.table$chr22.loss == 1))
-counts <- c(counts, sum(ph.table$NF2.snp.indel.rearrangement == 0 & ph.table$chr22.loss == 1))
-counts <- c(counts, sum(hg.table$NF2.snp.indel.rearrangement == 0 & hg.table$chr22.loss == 1))
-
-fisher.test(matrix(counts,2,2 ))
-
-fisher.test(table(total.table$Chr1.loss, total.table$chr22.loss))
 
 
 
@@ -331,7 +421,9 @@ counts <- c(counts, sum(total.table$Grade != "I" & total.table$Subtype != "Rhabd
 rhab.mtrx <- matrix(counts, nrow = 2)
 fisher.test(rhab.mtrx)
 
-pancan <- read.delim("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/compact.data.v3.maf", stringsAsFactors = F)
+
+## generate mutation counts for dotplot
+pancan <- read.delim("C:/Users/Noah/Documents/Big Files/dbs/compact.data.v3.maf", stringsAsFactors = F)
 pancan.filtered <- FilterMaf(pancan, snp.variants, "type")
 unique.cancers <- unique(pancan.filtered$ttype)
 output.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/mutations/mutation_counts"
@@ -341,7 +433,7 @@ for (i in 1:length(unique.cancers)){
 }
 
 
-## calculate mean difference from expected
+## calculate mean difference from expected for allelic fraction of NF2
 
 targets <- master.table[(master.table$Analsysis.Set. == 1) & master.table$NF2.snp.indel == 1,"Pair.Name"]
 targets <- targets[!is.na(targets)]
@@ -364,8 +456,3 @@ for (i in 1:length(targets)){
 }
 
 output
-
-
-
-
-

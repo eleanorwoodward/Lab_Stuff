@@ -13,14 +13,15 @@ for(i in 2:ncol(copy.number.calls)){
 }
 
 
-
 ## Generate separate mafs for each sample to be analzyed
 
 
 input.list <- list(c("MEN0030.TumorA", "MEN0030.TumorB"), c("MEN0042.TumorA", "MEN0042.TumorB", "MEN0042.TumorC"), 
                    c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorD", "MEN0048.TumorB", "MEN0048.TumorC"),
                    c("MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorA", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
-                   c("MEN0101.Tumor", "MEN0101.TumorA"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"))
+                   c("MEN0101.TumorB", "MEN0101.TumorA"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"), 
+                   c("MEN0121.TumorA", "MEN0121.TumorB", "MEN0121.TumorC", "MEN0121.TumorD"), c("MEN0122_RBM.TumorA", "MEN0122_RBM.TumorB", "MEN0122_RBM.TumorC",
+                                                                                                "MEN0122_RBM.TumorD", "MEN0122_RBM.TumorE"))
 
 primary.list <- c(1, 1, 1, 1,2,1,1,1,1,1)
 
@@ -32,8 +33,7 @@ ubiq.scna <- 0
 percent.scna <- c()
 auto.gene.lists <- list()
 men.mafs <- list()
-cleaned.05.disc.snindels.duplicates <- disc.snindels.duplicates[disc.snindels.duplicates$i_tumor_f > .05, ]
-cleaned.15.disc.snindels.duplicates <- disc.snindels.duplicates[disc.snindels.duplicates$i_tumor_f > .15, ]
+
 ## loops through list containing reccurrences from each sample
 for (h in 1:length(input.list)){
     combined.mutations <- NULL
@@ -139,56 +139,17 @@ bap1.1 <- rbind(bap1.snp[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Cla
 bap1.2 <- rbind(bap1.snp.long[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "i_tumor_f", "Chromosome", "Start_position")],
                bap1.indel.long[, c("Tumor_Sample_Barcode", "Hugo_Symbol", "Variant_Classification", "i_tumor_f", "Chromosome", "Start_position")])
 
+bap1.1 <- bap1.1[bap1.1$Variant_Classification %in% c(snp.variants, indel.variants, "silent"), ]
+bap1.2 <- bap1.2[bap1.2$Variant_Classification %in% c(snp.variants, indel.variants, "silent"), ]
+
+
 bap1.1.forced <- ForceCallMutations(bap1.1[-1, ], "Tumor_Sample_Barcode", "Hugo_Symbol", "Start_position")
-bap1.1.forced <- cbind(bap1.1.forced[, 1:2], bap1.1.forced[, -8])
+bap1.1.forced <- cbind(bap1.1.forced[, 1:2], bap1.1.forced[, -7])
 
 bap1.2.forced <- ForceCallMutations(bap1.2[-1, ], "Tumor_Sample_Barcode", "Hugo_Symbol", "Start_position")
-bap1.2.forced <- cbind(bap1.2.forced, bap1.2.forced[,])
+bap1.2.forced <- cbind(bap1.2.forced[, 1:2], bap1.2.forced[,-8])
 men.mafs[[11]] <- bap1.1.forced
 men.mafs[[12]] <- bap1.2.forced
-
-## calculate percentages of mutation types
-length(private.muts) / length(percent.muts)
-length(ubiq.muts) / length(percent.muts)
-mean(percent.muts)
-
-private.scna /length(percent.scna)
-ubiq.scna / length(percent.scna)
-mean(percent.scna)
-
-# calculate difference in allelic fractions
-t.test(as.numeric(private.muts), as.numeric(ubiq.muts))
-
-pair.mut.counts <- vector("list", length(input.list))
-pair.scna.counts <- vector("list", length(input.list))
-primary.counts <- c()
-primary.scna <- c()
-recurrent.counts <- c()
-recurrent.scna <- c()
-
-## summary calculations for section
-for (i in 1:length(input.list)){
-    sample.names <- input.list[[i]]
-    current.counts <- c()
-    current.scna.counts <- c()
-    for (j in 1:length(sample.names)){
-        current.name <- master.table[master.table$Tumor.Name == sample.names[j], ]$Pair.Name
-        muts <- nrow(FilterMaf(disc.snindels.duplicates, current.name,"Tumor_Sample_Barcode"))
-        current.counts <- c(current.counts, muts)
-        scnas <- sum(all.cna[[sample.names[j]]] != 0)
-        current.scna.counts <- c(current.scna.counts, scnas)
-        if (primary.list[i] == j){
-            primary.counts <- c(primary.counts, muts)
-            primary.scna <- c(primary.scna, scnas)
-        }else{
-            recurrent.counts <- c(recurrent.counts, muts)
-            recurrent.scna <- c(recurrent.scna, scnas)
-            
-        }
-    }
-    pair.mut.counts[[i]] <- current.counts
-    pair.scna.counts[[i]] <- current.scna.counts
-}
 
 ## compute sd of each list element mutations
 all.stdv <- c()
@@ -218,69 +179,6 @@ t.test(primary.scna, recurrent.scna)
 
 
 
-## look at tumors where recurrences were of diffrent grades
-
-
-## plot evolution of allelic fractions over time
-# Basic line graph with points: stolen from Rcookbook
-ggplot(data=dat1, aes(x=time, y=total_bill, group=sex, shape=sex)) + 
-    geom_line(size=1.5) + 
-    geom_point(size=3, fill="white") +
-    scale_shape_manual(values=c(22,21))
-
-## takes a list of genes, and returns their allelic fraction for all samples in given sublist
-samples <- input.list[[2]]
-# gene.lists <- list(c("SRP13", "CRIPAK", "LRP1B"))
-# auto.gene.lists see above
-fractions <- c()
-recurrence <- c()
-gene <- c()
-of.interest <- c()
-for (i in 1:length(samples)){
-    pair.name <- master.table[master.table$Tumor.Name == samples[i], ]$Pair.Name[1]
-    mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")
-    mutations <- mutations[mutations$Variant_Classification != "Silent", ]
-    mutations <- PerSampleMaf(mutations, "Hugo_Symbol")
-    average <- mean(mutations$i_tumor_f)
-    mutations <- mutations[mutations$Hugo_Symbol %in% auto.gene.lists[[2]], ]
-    fractions <- c(fractions, mutations$i_tumor_f, average)
-    recurrence <- c(recurrence, rep(pair.name, nrow(mutations) + 1))
-    of.interest <- c(of.interest, rep("genes", nrow(mutations)), "average")
-    
-    gene <- c(gene, mutations$Hugo_Symbol, "Average")
-    if ("NF2" %in% mutations$Hugo_Symbol){
-        idx <- max(which(gene %in% "NF2"))
-        of.interest[idx] <- "NF2"
-    }
-}
-time.series <- data.frame(fractions, recurrence, gene, of.interest)
-# Map sex to color
-x_levels <- unique(recurrence)
-time.series$recurrence <- factor(time.series$recurrence, levels = x_levels)
-ggplot(data=time.series, aes(x=recurrence, y=fractions, group=gene, colour=gene)) +
-    geom_line(size=1.5, aes(linetype=of.interest)) +
-    geom_point(size=2.5) +
-    xlab("Recurrence") +
-    ylab("Allelic Fraction") +
-    scale_linetype_manual(values=c("dotted", "solid", "longdash"))
-
-
-## look at 42 specifically, break up by direction of change
-time.series1 <- time.series[0, ]
-time.series2 <- time.series1
-for (i in 1:length(unique(time.series$gene))){
-    temp <- time.series[time.series$gene == unique(time.series$gene)[i], ]
-    if (temp$fractions[2] > temp$fractions[1]){
-        time.series1 <- rbind(time.series1, temp)
-    }else{
-        time.series2 <- rbind(time.series2, temp)
-    }
-}
-time.series2 <- rbind(time.series2, time.series[time.series$gene == "Average", ])
-time.series1$recurrence <- factor(time.series1$recurrence, levels = unique(time.series1$recurrence))
-time.series2$recurrence <- factor(time.series2$recurrence, levels = unique(time.series2$recurrence))
-
-
 
 ## compare average number of mutations shared between any two biopsies from same patient from maf that has already been forcecalled
 PatientAverage <- function(maf, filler){
@@ -305,6 +203,8 @@ PatientPrimaryRecurrent <- function(maf, filler){
     ## of columns before data starts
     percent.private.recurrence <- c()
     percent.first.last <- 0
+    change <- c()
+    
     if (ncol(maf) <= filler + 1){
         #do nothing, only one sample
     }else{
@@ -313,13 +213,15 @@ PatientPrimaryRecurrent <- function(maf, filler){
             private.recurrence <- sum(maf[, i + 1] > 0 & maf[, i] == 0)
             
             percent.private.recurrence <- c(percent.private.recurrence, private.recurrence / (private.primary + private.recurrence))
+            
+            change <- c(change, sum(maf[, i + 1] > 0) / sum(maf[, i] > 0))
 
         }
         private.first <- sum(maf[, filler + 1] > 0)
         private.last <- sum(maf[, ncol(maf)] > 0)
         percent.first.last <- private.last / (private.last + private.first)
         
-        return(list(percent.private.recurrence, percent.first.last))
+        return(list(percent.private.recurrence, percent.first.last, change))
     }
 }
 
@@ -634,22 +536,38 @@ for (i in 1:length(study11.mafs)){
     study11.numbers <- c(study11.numbers, nrow(temp))
 }
 
-total.men.mafs <- men.mafs
-men.mafs <- men.mafs[-c(3,6)]
+men.mafs.temp <- men.mafs[-c(3,6)]
+
+## percent shared betweeen all possible pairwise combinations per patient
 studyMen.percentages <- c()
+
+## average percent shared between all possible combinations within each patient
 studyMen.averages <- c()
+
+## total number of called mutations from all samples from given patient
 studyMen.numbers <- c()
+
+## difference in private mutationsr between first and last recurrence
 studyMen.first.last <- c()
+
+## difference between any two sequential biopsies
 studyMen.primary.recurrence <- c()
 studyMen.primary.recurrence.average <- c()
 studyMen.primary.recurrence.change <- c()
-for (i in 1:8)){
-    temp <- men.mafs[[i]]
+
+## change in total number of mutations from recurrence to recurrence
+studyMen.primary.recurrence.change.absolute <- c()
+
+
+mutation.deviation <- list()
+for (i in 1:length(men.mafs)){
+    temp <- men.mafs.temp[[i]]
     temp <- temp[, !is.na(temp[2, ])]
     temp <- temp[!is.na(temp[, 2]), ]
     percents <- PatientAverage(temp, 4)
     primary.vs.recurrent <- PatientPrimaryRecurrent(temp, 4)
     primary.vs.recurrent.vals <- primary.vs.recurrent[[1]]
+    studyMen.primary.recurrence.change.absolute <- c(studyMen.primary.recurrence.change.absolute, primary.vs.recurrent[[3]])
     studyMen.primary.recurrence <- c(studyMen.primary.recurrence,primary.vs.recurrent.vals)
     studyMen.primary.recurrence.average <- c(studyMen.primary.recurrence.average,mean(primary.vs.recurrent.vals))
     studyMen.first.last <- c(studyMen.first.last, primary.vs.recurrent[[2]])
@@ -660,7 +578,25 @@ for (i in 1:8)){
         percent <- (primary.vs.recurrent.vals[j] / primary.vs.recurrent.vals[j - 1])
         studyMen.primary.recurrence.change <- c(studyMen.primary.recurrence.change, percent)
     }
+
+    # gets # of mutations
+    num.muts <- c()
+    for (j in 5:ncol(temp)){
+        num.muts <- c(num.muts, sum(temp[, j] > 0))
+    }
+    mutation.deviation[[i]] <- num.muts
 }
+
+mean(studyMen.primary.recurrence.change.absolute)
+
+
+## regenerate percent variance across samples
+mutation.deviation.vals <- c()
+for (i in 1:length(mutation.deviation)){
+    mutation.deviation.vals <- c(mutation.deviation.vals, sd(mutation.deviation[[i]]) / mean(mutation.deviation[[i]]))
+}
+
+mean(mutation.deviation.vals)
 
 
 ## look at heterogeneity in copy number alterations
@@ -709,6 +645,12 @@ for (i in 1:length(all.mafs)){
     all.percents.mean <- c(all.percents.mean, mean(patient.percents))
 }
 
+
+
+
+
+
+## export percents for pan-can comparison
 export.list.1 <- list(study1.percentages, study2.percentages, study3.percentages, study4.percentages, study5.percentages,
                            study6.percentages, study7.percentages, study8.percentages, study9.percentages, study10.percentages, 
                            studyMen.percentages)
@@ -742,6 +684,9 @@ remove <- all.numbers > 4000
 all.numbers <- all.numbers[!remove]
 all.averages <- all.averages[!remove]
 plot(all.averages, all.numbers)
+
+
+
 ## check and see about samples that don't have reconstructable phylogeny
 men0048.combined.calls <- men.mafs[[4]]
 men0048.combined.calls <- men0048.combined.calls[order(men0048.combined.calls[, 5], men0048.combined.calls[, 6], men0048.combined.calls[, 7], men0048.combined.calls[, 8], 
@@ -752,7 +697,7 @@ men0093.combined.calls <- men0093.combined.calls[order(men0093.combined.calls[, 
                                                        decreasing = T), ]
 write.csv(men0093.combined.calls, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/men0093.mutations.csv", row.names = F)
 
-
+write.csv(disc.snindels, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/data/meningioma_allelic_fraction.csv", row.names = F)
 ## get info to make accurate trees
 ## MEn0030
 tree <- men.mafs[[1]]
@@ -768,6 +713,134 @@ sum(tree[, 5] > 0 & tree[,7] > 0)
 sum(tree[, 5] > 0)
 sum(tree[, 6] > 0)
 sum(tree[, 7] > 0)
+
+
+
+
+
+## Figs
+## create stacked bar plot for each patient with totally private mutations, totally shared mutations, and anything in between for each patient. 
+
+## creats a db with clonality counts
+
+sample.vector <- c()
+clonal.vector <- c()
+clonal.muts <- list()
+
+for (i in 1:length(men.mafs)){
+    maf <- men.mafs[[i]]
+    maf.matrix <- as.matrix(maf[, -c(1:4)])
+    maf.matrix <- apply(maf.matrix,2,as.numeric)
+    clonal.vals <- rowSums(maf.matrix)
+    samples <- ncol(maf.matrix)
+    current.clonal <- rep("private", length(clonal.vals))
+    current.clonal[clonal.vals == samples] <- "clonal"
+    current.clonal[clonal.vals < samples & clonal.vals > 1] <- "subclonal"
+    clonal.vector <- c(clonal.vector, current.clonal)
+    sample.vector <- c(sample.vector, rep(colnames(maf)[5], nrow(maf)))
+    clonal.muts[[i]] <- maf$Hugo_Symbol[current.clonal == "clonal"]
+    
+}
+
+clonal.df <- data.frame(sample.vector, clonal.vector)
+clonal.df$sample.vector <- factor(clonal.df$sample.vector, levels=names(sort(table(clonal.df$sample.vector), decreasing = T)))
+clonal.df$clonal.vector <- factor(clonal.df$clonal.vector, levels = c("clonal", "subclonal", "private"))
+
+ggplot(data=clonal.df, aes(x=sample.vector, fill=clonal.vector)) + geom_bar() + scale_fill_grey()
+
+## load ccf data
+absolute.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/ABSOLUTE/mafs"
+absolute.ccfs <- NULL
+for (i in 1:length(list.files(absolute.folder))){
+    temp <- readRDS(paste(absolute.folder, list.files(absolute.folder)[i], sep = "/"))
+    absolute.ccfs <- rbind(absolute.ccfs, temp[, c("pair_id", "Hugo_Symbol", "Chromosome", "Start_position", "Variant_Classification", "i_tumor_f", "ccf_hat")])
+}
+
+absolute.ccfs <- absolute.ccfs[absolute.ccfs$Variant_Classification %in% c(snp.variants, indel.variants, "Silent"), ]
+absolute.ccfs <- absolute.ccfs[!is.na(absolute.ccfs$i_tumor_f), ]
+
+
+## plot evolution of allelic fractions over time
+## takes a list of genes, and returns their allelic fraction for all samples in given sublist
+input.list.temp <- input.list[-c(1,3,6)]
+clonal.muts.temp <- clonal.muts[-c(1,3,6)]
+time.series.list <- list()
+
+## calculates change in ccf over time, both for average of all and for average of clonal mutations
+ccf.lfc <- c()
+ccf.clonal.lfc <- c()
+ccf.first.last <- c()
+
+for (i in 1:length(input.list.temp)){
+    samples <- input.list.temp[[i]]
+    fractions <- c()
+    recurrence <- c()
+    gene <- c()
+    of.interest <- c()
+    prior.ccf <- c()
+    first.ccf <- 0
+    for (j in 1:length(samples)){
+        pair.name <- master.table[master.table$Tumor.Name == samples[j], ]$Pair.Name[1]
+        mutations <- FilterMaf(absolute.ccfs, pair.name,"pair_id")
+        mutations <- PerSampleMaf(mutations, "Hugo_Symbol", identifier.column = "pair_id")
+        average <- mean(mutations$ccf_hat)
+        mutations <- mutations[mutations$Hugo_Symbol %in% clonal.muts.temp[[i]], ]
+        fractions <- c(fractions, mutations$ccf_hat, average)
+        recurrence <- c(recurrence, rep(pair.name, nrow(mutations) + 1))
+        of.interest <- c(of.interest, rep("genes", nrow(mutations)), "average")
+        
+        gene <- c(gene, mutations$Hugo_Symbol, "Average")
+        if ("NF2" %in% mutations$Hugo_Symbol){
+            idx <- max(which(gene %in% "NF2"))
+            of.interest[idx] <- "NF2"
+        }
+        if (j == 1){
+            first.ccf <- average
+        }
+        if (j > 1){
+            ccf.lfc <- c(ccf.lfc, average / prior.ccf[1])
+            ccf.clonal.lfc <- c(ccf.clonal.lfc, mean(mutations$ccf_hat / prior.ccf[2]))
+        }
+        
+        if (j == length(samples)){
+            ccf.first.last <- c(ccf.first.last, average / first.ccf)
+        }
+        prior.ccf <- c(average, mean(mutations$ccf_hat))
+    }
+    
+    
+    time.series <- data.frame(fractions, recurrence, gene, of.interest)
+    # Map sex to color
+    x_levels <- unique(recurrence)
+    time.series$recurrence <- factor(time.series$recurrence, levels = x_levels)
+    time.series.list[[i]] <- time.series
+}
+
+ggplot(data=time.series.list[[2]], aes(x=recurrence, y=fractions, group=gene, colour=of.interest)) +
+    geom_line(size=1.5, aes(linetype=of.interest)) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Allelic Fraction") +
+    scale_linetype_manual(values=c("dotted", "solid", "twodash")) +
+    scale_color_grey()
+
+
+## look at 42 specifically, break up by direction of change
+time.series1 <- time.series[0, ]
+time.series2 <- time.series1
+for (i in 1:length(unique(time.series$gene))){
+    temp <- time.series[time.series$gene == unique(time.series$gene)[i], ]
+    if (temp$fractions[2] > temp$fractions[1]){
+        time.series1 <- rbind(time.series1, temp)
+    }else{
+        time.series2 <- rbind(time.series2, temp)
+    }
+}
+time.series2 <- rbind(time.series2, time.series[time.series$gene == "Average", ])
+time.series1$recurrence <- factor(time.series1$recurrence, levels = unique(time.series1$recurrence))
+time.series2$recurrence <- factor(time.series2$recurrence, levels = unique(time.series2$recurrence))
+
+
 
 
 
