@@ -15,7 +15,7 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//CallC
 # install.packages("R.utils")
 # install.packages("NMF")
 # install.packages("kohonen")
-
+# install.packages("nycflights13")
 ## Nice packages
 library(grDevices)
 library(RColorBrewer)
@@ -24,10 +24,14 @@ library(rtracklayer)
 library(ggplot2)
 library(curl)
 library(R.utils)
-library("plyr")
 library(NMF)
 library(Biobase)
 library(kohonen)
+library(nycflights13)
+
+## ggplot settings
+rameen_theme <- theme(panel.background = element_blank(), axis.ticks.y = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank(), 
+                      axis.title.y = element_blank(), axis.line.x = element_line(size = 1.25, color = "black"), axis.line.y = element_line(size = 1.25, color = "black"))
 
 FilterMaf <- function(maf, list, column.name, keep = TRUE){
   # Takes a maf, and returns a maf with only those rows who have a value in given column that matches an entry in the list. 

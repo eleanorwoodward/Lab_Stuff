@@ -2,13 +2,13 @@
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
 ## Gets CSV data, formats and cleans it
-onc.data <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/R_input.txt', stringsAsFactors = FALSE, comment.char = "", 
-                   header = T, strip.white = T)
+onc.data <- read.delim('C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/R_input.txt', stringsAsFactors = FALSE, 
+                       comment.char = "", header = T, strip.white = T)
 onc.data <- onc.data[1:sum(onc.data$Last != ""), ]
 
 onc.data <- onc.data[onc.data$Oncopanel. == 1, ]
 
-
+onc.data <- onc.data[!(onc.data$Pathology %in% c("Langerhans Cell Histiocytosis (remove)", "Neuroblastoma, Olfactory (remove)" )), ]
 by.gene <- NULL
 
 ## loops through databse, extracts gene level information
@@ -41,102 +41,93 @@ for (i in 1:nrow(by.gene)){
     by.gene[i, 14] <- count
 }
 write.table(by.gene, "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Data/by_gene.txt", row.names = F, quote = F, sep = "\t")
-## last modified 9/23/16
-
-
-## Analysis
-
-# Check to see if disrupted or chr loss correlates with subtype
+## last modified 12/07/16
 
 adenomas <- onc.data[onc.data$Pathology == "Pituitary Adenoma", ]
 by.gene.patient <- PerSampleMaf(by.gene, "gene", "BWH_MRN")
 by.gene.adenomas <- FilterMaf(by.gene.patient, c("Functional", "Null", "Gonadotrope"), "pathology.anatomic")
 
 
-# correlation of 1, 11, and disruption with subtype
-yvals <- c("Chr.1.Loss", "Chr.11.loss", "disruption")
-mtrx1 <- matrix(NA, 1, 3)
-for (i in 1:3){
-    mini <- CleanYourRoom(adenomas[, c("pathology.anatomic", yvals[i])])
-    tbl <- table(mini[, 1], mini[, 2])
-    math.party <- fisher.test(tbl)
-    mtrx1[1, i] <- signif(math.party$p.value, 2)
-}
-mtrx1
+## Analysis
+## walk through all calculations in paper
+nrow(onc.data)
+table(onc.data$Sex)
+table(onc.data$Pathology)
+summary(onc.data$Estimated...Neoplastic.cells.in.specimen, na.rm = T)
+summary(onc.data$Depth..reads..total, na.rm = T)
 
-## correlation between disruption and other clinical features
-table(onc.data$Atypical., onc.data$disruption)
-table(onc.data$Recurrent.Tumor., onc.data$disruption)
+length(unique(by.gene.patient$BWH_MRN)) / 128
 
-## correlation of mutational load with clinical characteristics
-colums <-c("BWH_MRN", "DOB", "Pathology.Subtype", "Sex", "Recurrent.Tumor.", "disruption", "MIB....", "pathology.clinical")
+table(onc.data$Total...arm.events == 0)
+46 / (46 + 77)
+
+## Collapse mutation count data into master table
+
+colums <-c("BWH_MRN", "DOB", "Pathology.Subtype", "Sex", "Recurrent.Tumor.", "disruption", "MIB....", "pathology.clinical", "Atypical.", "Chr.1.Loss")
 patient.stats <- NULL
-mrns <- unique(by.gene.adenomas$BWH_MRN)
+mrns <- unique(onc.data$BWH_MRN)
+
 for (i in 1:length(mrns)){
     if (i == 1){
         patient.stats <- onc.data[onc.data$BWH_MRN == mrns[i], colums]
-        patient.stats$muts <- sum(by.gene.adenomas$BWH_MRN == mrns[1])
+        patient.stats$muts <- sum(by.gene.patient$BWH_MRN == mrns[1])
     }else{
-    muts <- sum(by.gene.adenomas$BWH_MRN == mrns[i])
-    patient.stats <- rbind(patient.stats, cbind(onc.data[onc.data$BWH_MRN == mrns[i], colums], muts))
+        muts <- sum(by.gene.patient$BWH_MRN == mrns[i])
+        patient.stats <- rbind(patient.stats, cbind(onc.data[onc.data$BWH_MRN == mrns[i], colums], muts))
     }
 }
 
-### convert to testable format
+### convert dob to age, MIB to numeric
 library(lubridate)
-numeric <- as.numeric(patient.stats$MIB....)
-patient.stats$MIB_Low_5 <- is.na(numeric) | numeric < 5
+patient.stats$MIB.... <- as.numeric(patient.stats$MIB....)
+patient.stats$MIB_Low_3 <- is.na(patient.stats$MIB....) | patient.stats$MIB.... < 3
 patient.stats$DOB <- mdy(patient.stats$DOB)
+patient.stats$Atypical. <- as.numeric(patient.stats$Atypical.)
 
-today <- mdy("09-01-2016")
+today <- mdy("12-01-2016")
 x <- as.period(today- patient.stats$DOB)
 patient.stats$Age <- as.numeric(x, "years")
 
-p.values <- c()
+write.table(patient.stats, "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Paper/figures + tables/sif_file.txt", sep = "\t", quote = F, row.names = F)
+## first do anova for multiple groups
+nonfunctional.idx <- patient.stats$Pathology.Subtype %in% c("Null", "FSH")
+functional.idx <- patient.stats$Pathology.Subtype %in% c("GH", "ACTH", "PRL")
+other.idx <- !(patient.stats$Pathology.Subtype %in% c("GH", "ACTH", "PRL", "Null", "FSH", "ER positive"))
 
-p.values <- c(p.values, t.test(patient.stats[patient.stats$Recurrent.Tumor. == 1, ]$muts, patient.stats[patient.stats$Recurrent.Tumor. == 0, ]$muts )$p.value)
+counts <- c(patient.stats[nonfunctional.idx, ]$muts, patient.stats[functional.idx, ]$muts, patient.stats[other.idx, ]$muts)
+groups <- c(rep("nonfunctional", sum(nonfunctional.idx)), rep("functional", sum(functional.idx)), rep("other", sum(other.idx)))
 
-p.values <- c(p.values, t.test(patient.stats[patient.stats$Sex == "F" | patient.stats$Sex == "Female", ]$muts, patient.stats[patient.stats$Sex == "M" 
-                                                                                                                             | patient.stats$Sex == "Male", ]$muts )$p.value)
+anova.df <- data.frame(muts = counts, groups = factor(groups))
+fit = lm(muts ~ groups, anova.df)
+anova(fit)
 
-p.values <- c(p.values, t.test(patient.stats[patient.stats$disruption == 1, ]$muts, patient.stats[patient.stats$disruption == 0, ]$muts )$p.value)
+wilcox.test(patient.stats[nonfunctional.idx, ]$muts, patient.stats[functional.idx, ]$muts)
+wilcox.test(patient.stats[other.idx, ]$muts, patient.stats[functional.idx, ]$muts)
 
-p.values <- c(p.values, t.test(patient.stats[patient.stats$MIB_Low == T, ]$muts, patient.stats[patient.stats$MIB_Low == F, ]$muts )$p.value)
-p.values <- c(p.values, t.test(patient.stats[patient.stats$MIB_Low_5 == T, ]$muts, patient.stats[patient.stats$MIB_Low_5 == F, ]$muts )$p.value)
+## remove non adenomas
+patient.stats <- patient.stats[!other.idx, ]
 
-p.values <- c(p.values, t.test(patient.stats[patient.stats$pathology.clinical == "Nonfunctional", ]$muts, patient.stats[patient.stats$pathology.clinical == "Functional", ]$muts )$p.value)
+t.test(patient.stats[patient.stats$Recurrent.Tumor. == 1, ]$muts, patient.stats[patient.stats$Recurrent.Tumor. == 0, ]$muts)
 
-p.adjust(p.values, "fdr")
+t.test(patient.stats[patient.stats$MIB_Low_3 == T, ]$muts, patient.stats[patient.stats$MIB_Low_3 == F, ]$muts)
 
-plot(patient.stats$Age, patient.stats$muts)
-
-
-## mutations
-
-
-## cohort statistics
-## generate maf for functional and nonfunctional adenomas
-
-func.adenomas <- by.gene.adenomas[by.gene.patient$pathology.clinical == "Functional", ]
-nonfunc.adenomas <- by.gene.adenomas[by.gene.patient$pathology.clinical == "Nonfunctional", ]
-
-# test difference in mutation rates
-func.table <- table(func.adenomas$gene)
-nonfunc.table <- table(nonfunc.adenomas$gene)
-
-wilcox.test(mutations.nonfunc, mutations.func)
-
-## Gene level analysis
-
-nrow(by.gene.patient) / 106
-
-length(unique(by.gene.patient$gene))
+t.test(patient.stats[patient.stats$Atypical. == 1, ]$muts, patient.stats[patient.stats$Atypical. == 0, ]$muts)
 
 
+sum(!onc.data$Rearrangements %in% c("", "none"))
+9/128
 
-## plot mutations in functional vs nonfunctional
+## Mutations section
+
+length(unique(by.gene.adenomas$gene))
+summary(patient.stats$muts)
+write.csv(unique(by.gene.adenomas$gene), "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Figures/supp_1_data.csv")
+## create ggplot friendly dataframe organized by subtype
 
 adenoma.table <- table(by.gene.adenomas$gene)
+sum(adenoma.table == 4)
+sum(adenoma.table == 3)
+sort(adenoma.table)
 table(by.gene.adenomas$Pathology.Subtype)
 gh.table <- table(by.gene.adenomas[by.gene.adenomas$Pathology.Subtype == "GH", ]$gene)
 gh.df <- data.frame(gh.table, rep("GH", length(gh.table)))
@@ -154,18 +145,17 @@ colnames(acth.df) <- c("Gene", "Freq", "Subtype")
 colnames(prl.df) <- c("Gene", "Freq", "Subtype")
 colnames(null.df) <- c("Gene", "Freq", "Subtype")
 subtype.df <- rbind(null.df, fsh.df, prl.df, acth.df, gh.df)
-## creates data frame with per subtype rate
-## 
-## takes all genes with at least 3 mutations
-by.gene.adenomas <- by.gene.adenomas[by.gene.adenomas$Pathology.Subtype != "hyperplasia", ]
+
+
+## Plot mutations per subtype of adenoma
 inclusion.list <- dimnames(table(by.gene.adenomas$gene)[table(by.gene.adenomas$gene) > 3])[[1]]
 overall.counts <- sort(table(by.gene.adenomas[by.gene.adenomas$gene %in% inclusion.list,]$gene), decreasing = T)
 subtype.df <- subtype.df[subtype.df$Gene %in% inclusion.list, ]
 subtype.df$Gene <- factor(subtype.df$Gene, levels = names(overall.counts))
 ggplot(subtype.df, aes(x = Gene, y = Freq, fill = Subtype)) + 
     geom_bar(stat = "identity") +
+    scale_fill_manual(values = c("red", "green", "blue", "yellow", "orange")) +
     scale_y_continuous(breaks=(seq(2, 14, 2))) +
-    scale_fill_grey() +
     theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
 
@@ -183,11 +173,15 @@ subtype.df$Gene_subtype <- factor(subtype.df$Gene, levels = names(counts))
 ggplot(subtype.df, aes(x = Gene_subtype, y = Freq, fill = Subtype)) + 
     geom_bar(stat = "identity") +
     scale_y_continuous(breaks=(seq(2, 14, 2))) +
-    scale_fill_grey() +
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+    rameen_theme
 
+sum(adenomas$Pathology.Subtype == "GH")
+6/21
 
-## significance of subtype specific enrichment
+fisher.test(matrix(c(6, 0,15,90),2,2))
+
+## significance of subtype specific enrichment for each gene
 mutation.totals <- list(sum(subtype.df[subtype.df$Subtype == "Null", 2]), sum(subtype.df[subtype.df$Subtype == "PRL", 2]),sum(subtype.df[subtype.df$Subtype == "FSH", 2]),
 sum(subtype.df[subtype.df$Subtype == "ACTH", 2]),sum(subtype.df[subtype.df$Subtype == "GH", 2]), sum(subtype.df$Freq))
 names(mutation.totals) <- c("Null", "GH", "ACTH", "PRL", "FSH", "Total")
@@ -205,12 +199,71 @@ p.values.adjusted <- p.adjust(p.values, "fdr")
 hot <- ReccurentMaf(by.gene.patient, "amino.acid")
 hot.table <- table(hot$gene)
 hot.list <- names(hot.table[hot.table > 1])
+write.table(hot, "C:/Users/Noah/Syncplicity Folders/Pituitary Oncopanel Project/Figures/supp_2_data.txt", sep = "\t")
 
 PlotMaf(by.gene.adenomas[by.gene.adenomas$gene %in% hot.list, ], "gene", "Genes with hotspot mutations")
 ## GSEA
 
 ## significance of mutation assocation with subtype
 fisher.test(table(by.gene.adenomas$gene == "GNAS", by.gene.adenomas$Pathology.Subtype == "GH"))
+
+12/130
+
+
+
+# correlation of 1, 11, and disruption with subtype
+yvals <- c("Chr.1.Loss", "Chr.11.loss", "disruption")
+mtrx1 <- matrix(NA, 1, 3)
+for (i in 1:3){
+    mini <- CleanYourRoom(adenomas[, c("pathology.clinical", yvals[i])], naughty.list = "Unclear")
+    tbl <- table(mini[, 1], mini[, 2])
+    math.party <- fisher.test(tbl)
+    mtrx1[1, i] <- signif(math.party$p.value, 2)
+}
+mtrx1
+
+
+
+## correlation between disruption and other clinical features
+table(adenomas$disruption, adenomas$pathology.clinical)
+
+table(adenomas$disruption, adenomas$Chr.1.Loss)
+
+table(adenomas$disruption, adenomas$Atypical.)
+
+table(adenomas$disruption, adenomas$Recurrent.Tumor.)
+
+table(patient.stats$disruption, patient.stats$MIB_Low_3)
+
+
+
+## supplementary tables
+
+sum(onc.data$Pathology == "Pituitary Adenoma") / 128
+sum(onc.data$Pathology == "Craniopharyngioma") / 130
+table(onc.data$Pathology.Subtype)
+14/114
+7/114
+21/114
+65/114
+14/114
+
+table(onc.data[onc.data$Pathology == "Pituitary Adenoma", ]$Recurrent.Tumor.)
+table(onc.data[onc.data$Pathology == "Pituitary Adenoma", ]$Atypical.)
+
+table(onc.data[onc.data$Pathology.Subtype == "ACTH", ]$Atypical.)
+table(onc.data[onc.data$Pathology.Subtype == "PRL", ]$Atypical.)
+table(onc.data[onc.data$Pathology.Subtype == "GH", ]$Atypical.)
+table(onc.data[onc.data$Pathology.Subtype %in% c("Null", "FSH"), ]$Atypical.)
+
+table(onc.data[onc.data$Pathology.Subtype == "ACTH", ]$Recurrent.Tumor.)
+table(onc.data[onc.data$Pathology.Subtype == "PRL", ]$Recurrent.Tumor.)
+table(onc.data[onc.data$Pathology.Subtype == "GH", ]$Recurrent.Tumor.)
+table(onc.data[onc.data$Pathology.Subtype %in% c("Null", "FSH"), ]$Recurrent.Tumor.)
+
+
+table(onc.data[onc.data$Pathology == "Craniopharyngioma", ]$Recurrent.Tumor.)
+
 
 ## Chr loss freq
 
