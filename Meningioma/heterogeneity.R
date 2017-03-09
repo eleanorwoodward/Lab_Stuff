@@ -2,7 +2,7 @@
 
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
-copy.number.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/all_hg.7.15/broad_values_by_arm_updated.txt", stringsAsFactors = F)
+copy.number.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/data/broad_values_by_arm_manual_review.txt", stringsAsFactors = F)
 copy.number.binary <- copy.number.calls
 for(i in 2:ncol(copy.number.calls)){
     for(j in 1:nrow(copy.number.calls)){
@@ -19,7 +19,7 @@ for(i in 2:ncol(copy.number.calls)){
 input.list <- list(c("MEN0030.TumorA", "MEN0030.TumorB"), c("MEN0042.TumorA", "MEN0042.TumorB", "MEN0042.TumorC"), 
                    c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorD", "MEN0048.TumorB", "MEN0048.TumorC"),
                    c("MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorA", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
-                   c("MEN0101.TumorB", "MEN0101.TumorA"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"), 
+                   c("MEN0101.TumorB", "MEN0101.Tumor"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"), 
                    c("MEN0121.TumorA", "MEN0121.TumorB", "MEN0121.TumorC", "MEN0121.TumorD"), c("MEN0122_RBM.TumorA", "MEN0122_RBM.TumorB", "MEN0122_RBM.TumorC",
                                                                                                 "MEN0122_RBM.TumorD", "MEN0122_RBM.TumorE"))
 
@@ -106,6 +106,12 @@ for (h in 1:length(input.list)){
     #write.table(combined.mutations, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0048_mutations.tsv", sep = "\t", row.names = F, quote = F)
 }
 ## read in bap1 data, force call, add to existing mafs
+
+## write csv for mutations
+write.csv(men.mafs[[2]], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0042_mutations.csv",row.names = F, quote = F)
+write.csv(men.mafs[[11]], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0121_mutations.csv",row.names = F, quote = F)
+write.csv(men.mafs[[12]], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/Phylogenetic Trees/MEN0122_mutations.csv",row.names = F, quote = F)
+
 
 bap1.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Bap1/mafs/"
 bap1.list <- list.files(bap1.folder)
@@ -536,7 +542,7 @@ for (i in 1:length(study11.mafs)){
     study11.numbers <- c(study11.numbers, nrow(temp))
 }
 
-men.mafs.temp <- men.mafs[-c(3,6)]
+men.mafs.temp <- men.mafs[-c(6)]
 
 ## percent shared betweeen all possible pairwise combinations per patient
 studyMen.percentages <- c()
@@ -560,7 +566,7 @@ studyMen.primary.recurrence.change.absolute <- c()
 
 
 mutation.deviation <- list()
-for (i in 1:length(men.mafs)){
+for (i in 1:length(men.mafs.temp)){
     temp <- men.mafs.temp[[i]]
     temp <- temp[, !is.na(temp[2, ])]
     temp <- temp[!is.na(temp[, 2]), ]
@@ -568,7 +574,7 @@ for (i in 1:length(men.mafs)){
     primary.vs.recurrent <- PatientPrimaryRecurrent(temp, 4)
     primary.vs.recurrent.vals <- primary.vs.recurrent[[1]]
     studyMen.primary.recurrence.change.absolute <- c(studyMen.primary.recurrence.change.absolute, primary.vs.recurrent[[3]])
-    studyMen.primary.recurrence <- c(studyMen.primary.recurrence,primary.vs.recurrent.vals)
+    studyMen.primary.recurrence <- c(studyMen.primary.recurrence, primary.vs.recurrent.vals)
     studyMen.primary.recurrence.average <- c(studyMen.primary.recurrence.average,mean(primary.vs.recurrent.vals))
     studyMen.first.last <- c(studyMen.first.last, primary.vs.recurrent[[2]])
     studyMen.percentages <- c(studyMen.percentages, percents)
@@ -586,7 +592,11 @@ for (i in 1:length(men.mafs)){
     }
     mutation.deviation[[i]] <- num.muts
 }
+studyMen.primary.recurrence.change.absolute
 
+## export log fold change in number of mutations from subsequent biopsies for prism plotting
+write.csv(log2(studyMen.primary.recurrence.change.absolute), "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/data/total_muts_lfc.csv",
+          row.names = F, quote = F)
 mean(studyMen.primary.recurrence.change.absolute)
 
 
@@ -599,7 +609,7 @@ for (i in 1:length(mutation.deviation)){
 mean(mutation.deviation.vals)
 
 
-## look at heterogeneity in copy number alterations
+## look at heterogeneity in copy number alterations: exclude bap1 bams from focal analyses
 focal.cna <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/all_hg.7.15/all_lesions.conf_99.txt", 
                         stringsAsFactors = F)
 focal.cna <- focal.cna[1:61, ]
@@ -616,9 +626,12 @@ for (i in 1:length(focal.mafs)){
     focal.percents.mean <- c(focal.percents.mean, mean(patient.percents))
 }
 
-broad.cna <- cbind(focal.cna[1:39, 1:8], copy.number.binary)
-broad.mafs <- list(broad.cna[, 11:12], broad.cna[, 14:16], broad.cna[, 17:21], broad.cna[, 22:25], 
-                   broad.cna[, c(33, 35:37)], broad.cna[, 47:48], broad.cna[, 65:66], broad.cna[, 67:68], broad.cna[, 69:70])
+
+## add filler
+broad.cna <- cbind(focal.cna[1:39, 1:9], copy.number.binary)
+broad.mafs <- list(broad.cna[, 11:12], broad.cna[, 13:15], broad.cna[, 16:20], broad.cna[, 21:24], 
+                   broad.cna[, c(32:35)], broad.cna[, 45:46], broad.cna[, 63:64], broad.cna[, 65:66], 
+                   broad.cna[, 67:68], broad.cna[, 69:72], broad.cna[, 73:77])
 
 broad.percents <- c()
 broad.percents.mean <- c()
@@ -646,7 +659,8 @@ for (i in 1:length(all.mafs)){
 }
 
 
-
+## statistical comparison of percent overlap
+t.test(studyMen.averages, broad.percents.mean)
 
 
 
@@ -715,8 +729,49 @@ sum(tree[, 6] > 0)
 sum(tree[, 7] > 0)
 
 
+## compare ccf heterogeneity
+maf.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Heterogeneity/absolute/"
+absolute.rds <- list.files(maf.folder)
+means <- c()
+sample.means <- list()
+
+for (i in 1:length(absolute.rds)){
+    x <- readRDS(paste(maf.folder, absolute.rds[i], sep = ""))
+    means <- c(means, mean(x$ccf_hat, na.rm = T))
+    ind.means <- c()
+    for (j in 1:length(unique(x$sample))){
+        temp <- x[x$sample == unique(x$sample)[j], ]
+        ind.means <- c(ind.means, mean(temp$ccf_hat, na.rm = T))
+    }
+    sample.means[[i]] <- ind.means
+}
 
 
+
+## write output to csv
+ind.means <- c()
+for (j in 1:length(unique(absolute.ccfs$pair_id))){
+    temp <- absolute.ccfs[absolute.ccfs$pair_id == unique(absolute.ccfs$pair_id)[j], ]
+    ind.means <- c(ind.means, mean(temp$ccf_hat, na.rm = T))
+}
+sample.means[[34]] <- ind.means
+
+
+max.length <- 0
+for (i in 1:length(sample.means)){
+    if (length(sample.means[[i]]) > max.length){
+        max.length <- length(sample.means[[i]])
+    }
+}
+
+for (i in 1:length(sample.means)){
+    sample.means[[i]] <- c(sample.means[[i]], rep(NA, max.length - length(sample.means[[i]])))
+}
+
+export.3 <- data.frame(sample.means)
+colnames(export.3) <- c(absolute.rds, "meningioma")
+write.csv(export.3, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/pancan_ccfs.csv", 
+          row.names = F)
 
 ## Figs
 ## create stacked bar plot for each patient with totally private mutations, totally shared mutations, and anything in between for each patient. 
@@ -746,19 +801,65 @@ clonal.df <- data.frame(sample.vector, clonal.vector)
 clonal.df$sample.vector <- factor(clonal.df$sample.vector, levels=names(sort(table(clonal.df$sample.vector), decreasing = T)))
 clonal.df$clonal.vector <- factor(clonal.df$clonal.vector, levels = c("clonal", "subclonal", "private"))
 
-ggplot(data=clonal.df, aes(x=sample.vector, fill=clonal.vector)) + geom_bar() + scale_fill_grey()
+ggplot(data=clonal.df, aes(x=sample.vector, fill=clonal.vector)) + geom_bar() + scale_fill_hue(l = "45") + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + rameen_theme
 
-## load ccf data
-absolute.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/ABSOLUTE/mafs"
-absolute.ccfs <- NULL
-for (i in 1:length(list.files(absolute.folder))){
-    temp <- readRDS(paste(absolute.folder, list.files(absolute.folder)[i], sep = "/"))
-    absolute.ccfs <- rbind(absolute.ccfs, temp[, c("pair_id", "Hugo_Symbol", "Chromosome", "Start_position", "Variant_Classification", "i_tumor_f", "ccf_hat")])
+
+
+## Figs
+## create stacked bar plot for each patient with totally private SCNAS, totally shared SCNAS, and anything in between 
+sample.vector <- c()
+clonal.vector <- c()
+clonal.muts <- list()
+
+for (i in 1:length(broad.mafs)){
+    maf <- broad.mafs[[i]]
+    clonal.vals <- rowSums(maf)
+    samples <- ncol(maf)
+    clonal.vals <- clonal.vals[clonal.vals != 0]
+    current.clonal <- rep("private", length(clonal.vals))
+    current.clonal[clonal.vals == samples] <- "clonal"
+    current.clonal[clonal.vals < samples & clonal.vals > 1] <- "subclonal"
+    clonal.vector <- c(clonal.vector, current.clonal)
+    sample.vector <- c(sample.vector, rep(colnames(maf)[1], length(clonal.vals)))
 }
 
-absolute.ccfs <- absolute.ccfs[absolute.ccfs$Variant_Classification %in% c(snp.variants, indel.variants, "Silent"), ]
-absolute.ccfs <- absolute.ccfs[!is.na(absolute.ccfs$i_tumor_f), ]
+clonal.df <- data.frame(sample.vector, clonal.vector)
+clonal.df$sample.vector <- factor(clonal.df$sample.vector, levels=names(sort(table(clonal.df$sample.vector), decreasing = T)))
+clonal.df$clonal.vector <- factor(clonal.df$clonal.vector, levels = c("clonal", "subclonal", "private"))
 
+ggplot(data=clonal.df, aes(x=sample.vector, fill=clonal.vector)) + geom_bar() + scale_fill_hue(l = "45") + 
+    theme(axis.text.x = element_text(angle = 90, hjust = 1)) + rameen_theme
+
+## load ccf data
+absolute.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/ABSOLUTE/recurrent.mafs/"
+recurrent.ccfs <- NULL
+for (i in 1:length(list.files(absolute.folder))){
+    temp <- readRDS(paste(absolute.folder, list.files(absolute.folder)[i], sep = "/"))
+    recurrent.ccfs <- rbind(recurrent.ccfs, temp[, c("pair_id", "Hugo_Symbol", "Chromosome", "Start_position", "Variant_Classification", "i_tumor_f", "ccf_hat")])
+}
+
+recurrent.ccfs <- recurrent.ccfs[recurrent.ccfs$Variant_Classification %in% c(snp.variants, indel.variants, "Silent"), ]
+recurrent.ccfs <- recurrent.ccfs[!is.na(recurrent.ccfs$i_tumor_f), ]
+
+
+## load ccf data across entire meningioma cohort
+disc.absolute.folder <- "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/ABSOLUTE/all.mafs//"
+discovery.ccfs <- NULL
+for (i in 1:length(list.files(disc.absolute.folder))){
+    temp <- readRDS(paste(disc.absolute.folder, list.files(disc.absolute.folder)[i], sep = "/"))
+    discovery.ccfs <- rbind(discovery.ccfs, temp[, c("pair_id", "Hugo_Symbol", "Chromosome", "Start_position", "Variant_Classification", "i_tumor_f", "ccf_hat")])
+}
+
+discovery.ccfs <- discovery.ccfs[discovery.ccfs$Variant_Classification %in% c(snp.variants, indel.variants, "Silent"), ]
+discovery.ccfs <- discovery.ccfs[!is.na(discovery.ccfs$i_tumor_f), ]
+
+discovery.ccf.80 <- discovery.ccfs[discovery.ccfs$ccf_hat > .8, ]
+nrow(discovery.ccf.80) /  nrow(discovery.ccfs)
+discovery.ccf.90 <- discovery.ccfs[discovery.ccfs$ccf_hat > .9, ]
+discovery.ccf.100 <- discovery.ccfs[discovery.ccfs$ccf_hat == 1, ]
+
+mean(table(discovery.ccf.100$pair_id) / table(discovery.ccfs$pair_id))
 
 ## plot evolution of allelic fractions over time
 ## takes a list of genes, and returns their allelic fraction for all samples in given sublist
@@ -767,9 +868,19 @@ clonal.muts.temp <- clonal.muts[-c(1,3,6)]
 time.series.list <- list()
 
 ## calculates change in ccf over time, both for average of all and for average of clonal mutations
+## log fold change in average of all mutations or clonal mutations
 ccf.lfc <- c()
 ccf.clonal.lfc <- c()
 ccf.first.last <- c()
+
+## tracks change in value of consequetive recurrences
+ccf.average.pair1 <- c()
+ccf.average.pair2 <- c()
+ccf.clonal.pair1 <- c()
+ccf.clonal.pair2 <- c()
+patient.average.clonal.ccf <- list()
+patient.average.ccf <- list()
+
 
 for (i in 1:length(input.list.temp)){
     samples <- input.list.temp[[i]]
@@ -779,16 +890,20 @@ for (i in 1:length(input.list.temp)){
     of.interest <- c()
     prior.ccf <- c()
     first.ccf <- 0
+    avg.clonal.ccfs <- c()
+    avg.ccfs <- c()
     for (j in 1:length(samples)){
         pair.name <- master.table[master.table$Tumor.Name == samples[j], ]$Pair.Name[1]
-        mutations <- FilterMaf(absolute.ccfs, pair.name,"pair_id")
+        mutations <- FilterMaf(recurrent.ccfs, pair.name,"pair_id")
         mutations <- PerSampleMaf(mutations, "Hugo_Symbol", identifier.column = "pair_id")
         average <- mean(mutations$ccf_hat)
+        avg.ccfs <- c(avg.ccfs, average)
         mutations <- mutations[mutations$Hugo_Symbol %in% clonal.muts.temp[[i]], ]
         fractions <- c(fractions, mutations$ccf_hat, average)
         recurrence <- c(recurrence, rep(pair.name, nrow(mutations) + 1))
         of.interest <- c(of.interest, rep("genes", nrow(mutations)), "average")
-        
+        avg.clonal.ccfs <- c(avg.clonal.ccfs, mean(mutations$ccf_hat))
+
         gene <- c(gene, mutations$Hugo_Symbol, "Average")
         if ("NF2" %in% mutations$Hugo_Symbol){
             idx <- max(which(gene %in% "NF2"))
@@ -796,17 +911,29 @@ for (i in 1:length(input.list.temp)){
         }
         if (j == 1){
             first.ccf <- average
+            ccf.average.pair1 <- c(ccf.average.pair1, average)
+            ccf.clonal.pair1 <- c(ccf.clonal.pair1, mutations$ccf_hat)
         }
         if (j > 1){
             ccf.lfc <- c(ccf.lfc, average / prior.ccf[1])
             ccf.clonal.lfc <- c(ccf.clonal.lfc, mean(mutations$ccf_hat / prior.ccf[2]))
+            ccf.average.pair1 <- c(ccf.average.pair1, average)
+            ccf.average.pair2 <- c(ccf.average.pair2, average)
+            ccf.clonal.pair1 <- c(ccf.clonal.pair1, mutations$ccf_hat)
+            ccf.clonal.pair2 <- c(ccf.clonal.pair2, mutations$ccf_hat)
+            
         }
         
         if (j == length(samples)){
             ccf.first.last <- c(ccf.first.last, average / first.ccf)
+            ccf.average.pair1 <- ccf.average.pair1[-length(ccf.average.pair1)]
+            ccf.clonal.pair1 <- ccf.clonal.pair1[1:length(ccf.clonal.pair2)]
+            
         }
         prior.ccf <- c(average, mean(mutations$ccf_hat))
     }
+    patient.average.clonal.ccf[[i]] <- avg.clonal.ccfs
+    patient.average.ccf[[i]] <- avg.ccfs
     
     
     time.series <- data.frame(fractions, recurrence, gene, of.interest)
@@ -816,6 +943,7 @@ for (i in 1:length(input.list.temp)){
     time.series.list[[i]] <- time.series
 }
 
+## plot per sample evolution
 ggplot(data=time.series.list[[2]], aes(x=recurrence, y=fractions, group=gene, colour=of.interest)) +
     geom_line(size=1.5, aes(linetype=of.interest)) +
     geom_point(size=2.5) +
@@ -823,6 +951,93 @@ ggplot(data=time.series.list[[2]], aes(x=recurrence, y=fractions, group=gene, co
     ylab("Allelic Fraction") +
     scale_linetype_manual(values=c("dotted", "solid", "twodash")) +
     scale_color_grey()
+
+## plot change in average ccf
+pair.identifier <- seq(1:length(ccf.average.pair1))
+recurrence.identifier <- c(rep("R1", length(ccf.average.pair2)), rep("R2", length(ccf.average.pair2)))
+temp1 <- data.frame(c(ccf.average.pair1, ccf.average.pair2), c(pair.identifier, pair.identifier), recurrence.identifier)
+colnames(temp1) <- c("ccfs", "pair.identifier", "recurrence.id")
+
+
+ggplot(data=temp1, aes(x=recurrence.id, y=ccfs, group=pair.identifier)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Allelic Fraction") +
+    scale_linetype_manual(values=c("dotted", "solid", "twodash")) +
+    scale_color_grey()
+
+
+
+## plot change in ccf for each clonal muts ccf
+pair.identifier <- seq(1:length(ccf.clonal.pair1))
+recurrence.identifier <- c(rep("R1", length(ccf.clonal.pair2)), rep("R2", length(ccf.clonal.pair2)))
+temp2 <- data.frame(c(ccf.clonal.pair1, ccf.clonal.pair2), c(pair.identifier, pair.identifier), recurrence.identifier)
+colnames(temp2) <- c("ccfs", "pair.identifier", "recurrence.id")
+
+
+ggplot(data=temp2, aes(x=recurrence.id, y=ccfs, group=pair.identifier)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Allelic Fraction") +
+    scale_linetype_manual(values=c("dotted", "solid", "twodash")) +
+    scale_color_grey()
+
+## write to csv for prism plotting of dot plot
+
+clonal.ccf.lfc <- log2(ccf.clonal.pair2/ccf.clonal.pair1)
+write.csv(clonal.ccf.lfc, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/clonal_ccf_lfc_vals.csv", row.names = F)
+
+## scatter of ccfs
+plot(ccf.clonal.pair1, ccf.clonal.pair2)
+
+
+## plot per sample average clonal evolution over time
+
+col1 <- c()
+col2 <- c()
+col3 <- c()
+for (i in 1:length(patient.average.clonal.ccf)){
+    y.val <- patient.average.clonal.ccf[[i]]
+    x.val <- seq(1:length(y.val))
+    id <- rep(input.list.temp[[i]][1], length(y.val))
+    col1 <- c(x.val, col1)
+    col2 <- c(y.val, col2)
+    col3 <- c(id, col3)         
+}
+
+temp3 <- data.frame(col1, col2, col3)
+
+ggplot(data=temp3, aes(x=col1, y=col2, group=col3, color= col3)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Allelic Fraction")
+
+
+## plot per sample average all ccfs over time
+
+col1 <- c()
+col2 <- c()
+col3 <- c()
+for (i in 1:length(patient.average.clonal.ccf)){
+    y.val <- patient.average.ccf[[i]]
+    x.val <- seq(1:length(y.val))
+    id <- rep(input.list.temp[[i]][1], length(y.val))
+    col1 <- c(x.val, col1)
+    col2 <- c(y.val, col2)
+    col3 <- c(id, col3)         
+}
+
+temp3 <- data.frame(col1, col2, col3)
+
+ggplot(data=temp3, aes(x=col1, y=col2, group=col3, color= col3)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Allelic Fraction")
+
 
 
 ## look at 42 specifically, break up by direction of change
@@ -840,7 +1055,95 @@ time.series2 <- rbind(time.series2, time.series[time.series$gene == "Average", ]
 time.series1$recurrence <- factor(time.series1$recurrence, levels = unique(time.series1$recurrence))
 time.series2$recurrence <- factor(time.series2$recurrence, levels = unique(time.series2$recurrence))
 
+## generate area under the curve type figure
+
+offset <- 4
+percent.events <- c()
+sample.fraction <- c()
+sample <- c()
+men.mafs.temp <- men.mafs[-c(6)]
+for (i in 1:length(men.mafs.temp)){
+    maf <- men.mafs.temp[[i]]
+    maf <- maf[, -(1:offset)]
+    maf <- apply(maf,2,as.numeric)
+    total <- nrow(maf)
+    current.sample <- colnames(maf)[1]
+    order <- sample(1:ncol(maf), ncol(maf))
+    for (j in 1:ncol(maf)){
+        temp.maf <- maf[, order[1:j]]
+        if (j == 1){
+            sum <- sum(temp.maf == 1)
+            percent.events <- c(percent.events,0, sum / total)
+            sample.fraction <- c(sample.fraction,0, j / ncol(maf))
+            sample <- c(sample, current.sample, current.sample)
+        }else{
+            sum <- sum(rowSums(temp.maf) != 0)
+            percent.events <- c(percent.events, sum / total)
+            sample.fraction <- c(sample.fraction, j / ncol(maf))
+            sample <- c(sample, current.sample)
+        }
+    }    
+}
+
+class <- rep("Mutation", length(percent.events))
+roc.df <- data.frame(percent.events, sample.fraction, sample, class)
+
+ggplot(data=roc.df, aes(x=sample.fraction, y=percent.events, group=sample, color=sample)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Percent total") +
+    rameen_theme
 
 
+
+## generate area under the curve type figure
+
+offset <- 4
+percent.events <- c()
+sample.fraction <- c()
+sample <- c()
+broad.mafs.temp <- broad.mafs[-c(6)]
+for (i in 1:length(broad.mafs.temp)){
+    maf <- broad.mafs.temp[[i]]
+    maf <- maf[rowSums(maf) > 0, ]
+    total <- nrow(maf)
+    current.sample <- colnames(maf)[2]
+    order <- sample(1:ncol(maf), ncol(maf))
+    for (j in 1:ncol(maf)){
+        temp.maf <- maf[, order[1:j]]
+        if (j == 1){
+            sum <- sum(temp.maf == 1)
+            percent.events <- c(percent.events,0, sum / total)
+            sample.fraction <- c(sample.fraction,0, j / ncol(maf))
+            sample <- c(sample, current.sample, current.sample)
+        }else{
+            sum <- sum(rowSums(temp.maf) != 0)
+            percent.events <- c(percent.events, sum / total)
+            sample.fraction <- c(sample.fraction, j / ncol(maf))
+            sample <- c(sample, current.sample)
+        }
+    }    
+}
+
+class <- rep("SCNA", length(percent.events))
+roc.df.cn <- data.frame(percent.events, sample.fraction, sample, class)
+
+ggplot(data=roc.df.cn, aes(x=sample.fraction, y=percent.events, group=sample, color=sample)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Percent total") +
+    rameen_theme
+
+
+roc.df.combined <- rbind(roc.df, roc.df.cn)
+
+ggplot(data=roc.df.combined, aes(x=sample.fraction, y=percent.events, group=sample, color=class)) +
+    geom_line(size=1.5) +
+    geom_point(size=2.5) +
+    xlab("Recurrence") +
+    ylab("Percent total") +
+    rameen_theme
 
 

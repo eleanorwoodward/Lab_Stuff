@@ -8,8 +8,8 @@ annotated <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)
 ## If span is greater than 1000 bases, allows for 5% allelic fraction and 2 reads
 ## if span is less than 1000 bases, requires 10% af and at least 5 reads
 good.rearrangements <- total.rearrangements[(total.rearrangements$SPAN > 1000 | total.rearrangements$SPAN == -1) & total.rearrangements[, "TUMALT"] > 1 & 
-                                                     (total.rearrangements[, "TUMALT"] / total.rearrangements[, "TUMCOV"] > .05 )
-                                             | total.rearrangements[, "TUMCOV"] > 5 & (total.rearrangements[,"TUMALT"] / total.rearrangements[, "TUMCOV"] > .10 ) , ]
+                                                (total.rearrangements[, "TUMALT"] / total.rearrangements[, "TUMCOV"] > .05 )
+                                            | total.rearrangements[, "TUMCOV"] > 5 & (total.rearrangements[,"TUMALT"] / total.rearrangements[, "TUMCOV"] > .10 ) , ]
 
 ## combine annotation of event type from poorly formatted sheet
 good.rearrangements$event.type <- NA
@@ -22,7 +22,7 @@ for (i in 1:nrow(good.rearrangements)){
     sample <- good.rearrangements$Sample[i]
     matches <- annotated[annotated$chr1 == chr1 & annotated$pos1 == pos1 & annotated$chr2 == chr2 & annotated$pos2 == pos2 & annotated$Sample == sample,]
     if (nrow(matches) == 1){
-        good.rearrangements$even.typet[i] <- matches$mechanism
+        good.rearrangements$event.type[i] <- matches$mechanism
         good.rearrangements$complex[i] <- matches$complex.event
     }else if (nrow(matches) > 1){
         stop("error")
@@ -39,6 +39,9 @@ good.rearrangements$complex.simple[good.rearrangements$complex.simple == ""] <- 
 rearrangements <- good.rearrangements
 
 rearrangements <- meerdog(rearrangements)
+
+write.table(rearrangements, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Snowman/rearrangements_final.txt",
+            quote = F, row.names = F, sep = "\t")
 
 ## removes NAs, look for multiple hits
 rearrangements[is.na(rearrangements$gene1), "gene1"] <- ""
@@ -168,34 +171,28 @@ for (i in 1:nrow(x)){
                 if (close.friends[, 8] == current.individual){
                     x[as.numeric(rownames(close.friends)[1]), 9] <- 1
                 }
-            
-            ## check if at least 2 unique hits        
+                
+                ## check if at least 2 unique hits        
             }else if (length(unique(close.friends[, 8])) > 1){
                 ## Do nothing
                 
-            ## check and see if non-unique current samples are different from original    
+                ## check and see if non-unique current samples are different from original    
             }else if (close.friends[1, 8] !=current.individual){
                 # Do nothing
-  
-            #Otherwise, must be redundant hits    
+                
+                #Otherwise, must be redundant hits    
             }else{
                 for (j in 1:nrow(close.friends)){
                     x[as.numeric(rownames(close.friends)[j]), 9] <- 1
                 }
                 
             }
-                    
+            
         }
         
     }
     
 } 
-
-
-
-
-
-
 
 
 ## Figures
@@ -258,7 +255,7 @@ median(table(plotting.matrix$sample)[!complex.names.idx])
 wilcox.test(table(plotting.matrix$sample)[complex.names.idx], table(plotting.matrix$sample)[!complex.names.idx])
 
 mean(table(plotting.matrix[plotting.matrix$complex.simple == "complex.event", ]$sample) / 
- table(plotting.matrix[plotting.matrix$sample %in% unique(plotting.matrix$sample)[complex.names.idx], ]$sample))
+         table(plotting.matrix[plotting.matrix$sample %in% unique(plotting.matrix$sample)[complex.names.idx], ]$sample))
 
 ## Comparison of number of complex vs noncomplex events
 ggplot(data=plotting.matrix, aes(x=complex.simple)) + geom_bar(width = .5)+ labs(title= "Event type comparison", x = "Event Type", y = "count") + scale_fill_grey()
@@ -268,14 +265,26 @@ plotting.matrix$Sample <- factor(plotting.matrix$Sample, levels=names(sort(table
 ggplot(data=plotting.matrix[plotting.matrix$Sample %in% unique(plotting.matrix$Sample)[complex.names.idx], ], 
        aes(x=Sample, fill = complex.simple)) + geom_bar(width = .5)+ scale_fill_grey() + labs(title= "Event type comparison", x = "Event Type", y = "count")
 
+
+
 ## log scale adjacent graph sorted by presence of complex event or not
-ggplot(data=plotting.matrix, aes(x=Sample, fill = complex.simple)) + geom_bar(width = .5, position = "dodge")+ scale_fill_grey() + 
-labs(title= "Event type comparison", x = "Samples", y = "Rearrangement count") + theme(axis.text.x=element_blank()) +
+plotting.matrix$Sample <- as.character(plotting.matrix$Sample)
+low.grades <- sort(unique(plotting.matrix$Sample))[c(1:9, 17)]
+high.grades <- sort(unique(plotting.matrix$Sample))[!(unique(plotting.matrix$Sample) %in% low.grades)]
+
+hg.complex.order <- names(sort(table(plotting.matrix[plotting.matrix$complex.simple == "complex.event" & plotting.matrix$Sample %in% high.grades, ]$Sample), decreasing = T))
+hg.simple.order <- names(sort(table(plotting.matrix[!(plotting.matrix$Sample %in% hg.complex.order) & plotting.matrix$Sample %in% high.grades, ]$Sample), decreasing = T))
+
+lg.complex.order <- names(sort(table(plotting.matrix[plotting.matrix$complex.simple == "complex.event" & plotting.matrix$Sample %in% low.grades, ]$Sample), decreasing = T))
+lg.simple.order <- names(sort(table(plotting.matrix[!(plotting.matrix$Sample %in% lg.complex.order) & plotting.matrix$Sample %in% low.grades, ]$Sample), decreasing = T))
+
+
+plotting.matrix$Sample <- factor(plotting.matrix$Sample, levels = c(hg.complex.order, hg.simple.order, lg.complex.order, lg.simple.order))
+ggplot(data=plotting.matrix, aes(x=Sample, fill = complex.simple)) + geom_bar(width = .5, position = "dodge")+  
+    labs(title= "Event type comparison", x = "Samples", y = "Rearrangement count")  + rameen_theme
 scale_y_log10()
 
-
-## create stacked bar with percentages instead of absolute counts
-plotting.matrix$Sample <- as.character(plotting.matrix$Sample)
+## percentage instead of absolute count
 complex.num <- c()
 simple.num <- c()
 samples <- unique(plotting.matrix$Sample) 
@@ -284,7 +293,15 @@ for (i in 1:length(samples)){
     simple.num <- c(simple.num, sum(plotting.matrix[plotting.matrix$complex.simple == "simple.event", ]$Sample == samples[i]))
 }
 
-complex.df <- data.frame(samples, complex.num / (complex.num + simple.num), simple.num / (complex.num + simple.num))
+complex.df <- data.frame(c(samples, samples), c(complex.num / (complex.num + simple.num), simple.num / (complex.num + simple.num)), 
+                         c(rep("complex",length(complex.num)), rep("simple", length(simple.num))))
+colnames(complex.df) <- c("sample", "percent", "event")
+complex.df$sample <- factor(complex.df$sample, levels = c(complex.order, simple.order))
+
+
+ggplot(data=complex.df, aes(x=sample, fill = event, y = percent)) + geom_bar(width = .5, stat= "identity")+  
+    labs(title= "Event type comparison", x = "Samples", y = "Rearrangement count")
+
 
 ## meerdog event mechanism by grade
 plotting.matrix$meerdog <- factor(plotting.matrix$meerdog, levels=c("NHEJ", "MMEJ", "MMBIR", "SSR"))
@@ -301,23 +318,82 @@ ggplot(data=plotting.matrix, aes(x=event.type.simple, fill=grade.and.outlier)) +
 fisher.test(table(plotting.matrix[plotting.matrix$Sample == "MEN0048G-P1", ]$event.type.simple == "translocation", 
                   plotting.matrix[plotting.matrix$Sample == "MEN0048G-P1", ]$complex.simple))
 
-ggplot(data=plotting.matrix, aes(x=SPAN==-1, fill=complex.simple)) + geom_bar(width = .5) + scale_fill_grey() +
-    labs(title= "Event type comparison", x = "Event Type", y = "count")
+ggplot(data=plotting.matrix, aes(fill=SPAN==-1, x=complex.simple)) + geom_bar(width = .5) + scale_fill_grey() +
+    labs(title= "Event type comparison", x = "Event Type", y = "count") + rameen_theme
 
 ## meerdog event mechanism with grade separate
 ggplot(data=plotting.matrix[plotting.matrix$grade == "LG",], aes(x=meerdog)) + geom_bar(width = .5)+ labs(title= "Low grade samples", x = "Event Type", y = "count")
 ggplot(data=plotting.matrix[plotting.matrix$grade == "HG",], aes(x=meerdog)) + geom_bar(width = .5)+ labs(title= "High grade samples", x = "Event Type", y = "count")
 
 
+## compare incidence we find to incidence across cancer types.
+
+pancan.rearrangements <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Meerkat/pancan_rearrangement_classification.txt", 
+                                    stringsAsFactors = F)
+pancan.names <- unique(pancan.rearrangements$patient.ID)
+
+pancan.tumor.type <- c(rep("breast", sum(pancan.rearrangements$patient.ID %in% pancan.names[1:35])),
+                       rep("crc", sum(pancan.rearrangements$patient.ID %in% pancan.names[36:49])),
+                       rep("gbm", sum(pancan.rearrangements$patient.ID %in% pancan.names[50:65])),
+                       rep("kirc", sum(pancan.rearrangements$patient.ID %in% pancan.names[66:68])),
+                       rep("lusc", sum(pancan.rearrangements$patient.ID %in% pancan.names[69:86])),
+                       rep("hcc", sum(pancan.rearrangements$patient.ID %in% pancan.names[87:105])),
+                       rep("mm", sum(pancan.rearrangements$patient.ID %in% pancan.names[106:112])),
+                       rep("ovo", sum(pancan.rearrangements$patient.ID %in% pancan.names[113:121])),
+                       rep("pro", sum(pancan.rearrangements$patient.ID %in% pancan.names[122:128])),
+                       rep("ucec", sum(pancan.rearrangements$patient.ID %in% pancan.names[129:138])), "")
+pancan.rearrangements <- cbind(pancan.rearrangements, pancan.tumor.type)
+table(pancan.rearrangements$mechanism)
+cleaned.pancan <- pancan.rearrangements[pancan.rearrangements$mechanism %in% c("alt-EJ", "FoSTeS", "NHEJ", "VNTR"),]
+cleaned.pancan <- cleaned.pancan[, c(1,3,4,26)]
+cleaned.meningioma <- plotting.matrix[, c("Sample", "event.type.simple", "meerdog")]
+cleaned.meningioma <- cbind(cleaned.meningioma, rep("meningioma", nrow(cleaned.meningioma)))
+colnames(cleaned.meningioma) <- colnames(cleaned.pancan)
+
+cleaned.pancan[cleaned.pancan$mechanism == "alt-EJ", ]$mechanism <- "MMEJ"
+cleaned.pancan[cleaned.pancan$mechanism == "FoSTeS", ]$mechanism <- "MMBIR"
+cleaned.combined <- rbind(cleaned.pancan, cleaned.meningioma)
+
+ggplot(data=cleaned.combined, aes(x=pancan.tumor.type, fill=mechanism)) + geom_bar(position = "dodge") 
+scale_y_log10()
 
 
+## plot as percent
+cleaned.combined.raw <- table(cleaned.combined$mechanism, cleaned.combined$pancan.tumor.type)
+
+cleaned.percent.mtrx <- as.matrix(t(cleaned.combined.raw))
+rownames(cleaned.percent.mtrx)
+
+cleaned.defactor.df <- cbind(as.numeric(cleaned.percent.mtrx[,1]), 
+                             as.numeric(cleaned.percent.mtrx[,2]), as.numeric(cleaned.percent.mtrx[,3]))
 
 
+cleaned.defactor.df <- cleaned.defactor.df[-1, ]
+cleaned.defactor.df <- cbind(cleaned.defactor.df, as.numeric(rowSums(cleaned.defactor.df)))
+cleaned.defactor.df[,1] <- cleaned.defactor.df[,1] / cleaned.defactor.df[,4]
+cleaned.defactor.df[,2] <- cleaned.defactor.df[,2] / cleaned.defactor.df[,4]
+cleaned.defactor.df[,3] <- cleaned.defactor.df[,3] / cleaned.defactor.df[,4]
+cleaned.defactor.df <- cleaned.defactor.df[, -4]
+rownames(cleaned.defactor.df) <- colnames(cleaned.combined.raw)[-1]
+colnames(cleaned.defactor.df) <- rownames(cleaned.combined.raw)[-(4:5)]
 
+names <- c()
+vals <- c()
+type <- rep(c("MMBIR", "MMEJ", "NHEJ"), 11)
+for (i in 1:(nrow(cleaned.defactor.df))){
+    names <- c(names, rep(rownames(cleaned.defactor.df)[i], 3))
+    vals <- c(vals, as.numeric(cleaned.defactor.df[i, ]))
+}
 
+small.df <- data.frame(names, vals, type, stringsAsFactors = F)
+small.df$names <- factor(small.df$names, levels = unique(small.df$names)[order(small.df[small.df$type == "MMEJ", ]$vals, decreasing = T)])
+small.df$type <- factor(small.df$type, levels = c("MMEJ", "NHEJ", "MMBIR"))
+color.theme <- c("#edf8b1", "#7fcdbb", "#2c7fb8")
+color.theme2 <- c("#ece2f0", "#a6bddb", "#1c9099")
+ggplot(data=small.df, aes(x=names, y = vals, fill = type)) + geom_bar(stat = "identity", position = "dodge") + scale_fill_manual(values = color.theme2) +
+    rameen_theme
 
-
-
+## generate plot with percent per sample
 
 
 
@@ -565,7 +641,7 @@ colnames(rearrangements)[17] <- "cancer.related"
 
 
 ## Gets start and end of each gene
-hg.reference <- read.delim("C:/Users/Noah/Onedrive/Work/Coding/R/dbs/all_genes_hg38.txt", stringsAsFactors = F, comment.char = "", header = T)
+hg.reference <- read.delim("C:/Users/Noah/Documents/Big Files/dbs/all_genes_hg38.txt", stringsAsFactors = F, comment.char = "", header = T)
 reference <- hg.reference[, c(3, 5,6,13)]
 
 ## Gets centromere position

@@ -1,18 +1,12 @@
 ## Simplified Meerkat style rearrangement caller
 
-#rtrack <- import("C:/Users/Noah/OneDrive/Work/Coding/R/dbs/psuedogenes.bed", format = "BED")
-## read in regions of genome with tandem repeats
-vntr <- readRDS("C:/Users/Noah/Documents/Big Files/dbs/gr.repeatMasker.rds")
-## read in regions with transposable elements
-te <- readRDS("C:/Users/Noah/Documents/Big Files/dbs/tubio_l1.rds")
-
-
-events.matrix <- rearrangements
-events.matrix$meerdog <- "not classified"
-events.backup <- events.matrix
-events.matrix <- events.backup
-
 meerdog <- function(events.matrix){
+    
+    ## read in regions of genome with tandem repeats
+    vntr <- readRDS("C:/Users/Noah/Documents/Big Files/dbs/gr.repeatMasker.rds")
+    ## read in regions with transposable elements
+    te <- readRDS("C:/Users/Noah/Documents/Big Files/dbs/tubio_l1.rds")
+    
     for (i in 1:nrow(events.matrix)){
         
         # sets variables for current rearrangement
@@ -92,6 +86,3 @@ meerdog <- function(events.matrix){
     }
     return(events.matrix)
 }
-
-x <- meerdog(rearrangements)
-x <- meerdog(events.matrix)

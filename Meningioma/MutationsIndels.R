@@ -13,7 +13,7 @@ unique(ph.coding.snps[ph.coding.snps$Hugo_Symbol == "NF2", ]$Tumor_Sample_Barcod
 unique(genes.all[genes.all$gene == "NF2", ]$sample)
 
 ## Read in master table, add column for total mutations
-master.table <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/mastertable_for_R.txt", stringsAsFactors = F)
+master.table <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Master_Table.txt", stringsAsFactors = F)
 
 
 ## GSEA
@@ -99,6 +99,13 @@ disc.snindels.2 <- ReccurentMaf(disc.snindels.2, "Hugo_Symbol")
 write.csv(disc.snindels.2, "C:/Users/Noah/OneDrive/Work/Meningioma/GSEA/genes_mutated_at_least_twice_disc.csv", row.names = F)
 
 
+## for revision
+subtype.table <- master.table[master.table$Master.Cohort == 1, ]
+table(subtype.table$Subtype.Simple)
+fisher.test(table(subtype.table$Subtype.Simple == "Meningothelial", subtype.table$PIK3CA | subtype.table$AKT1 ))
+fisher.test(table(subtype.table$Subtype.Simple == "Fibroblastic" | subtype.table$Subtype.Simple == "Transitional"  , subtype.table$NF2.snp.indel ))
+fisher.test(table(subtype.table$Subtype.Simple == "secretory" , subtype.table$TRAF7 | subtype.table$KLF4 ))
+fisher.test(table(subtype.table$Subtype.Simple == "" , subtype.table$TRAF7 | subtype.table$KLF4 ))
 
 
 ## statistics for paper
@@ -114,6 +121,9 @@ total.nf2.wt.list <- master.table[(master.table$Analsysis.Set. == 1 | master.tab
                                           master.table$NF2.snp.indel == 0, ]$Pair.Name
 ph.list <- master.table[master.table$Cohort == "PH",]$Pair.Name
 ph.table <- master.table[master.table$Cohort == "PH" | (master.table$Cohort == "onc" & master.table$Grade == "I"), ]
+
+
+
 
 ## order master table for comut
 
@@ -164,16 +174,21 @@ comut <- t(gistic.set[, c(2, 5,6,17, 19, 20)])
 write.csv(comut, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/GISTIC/total.gistic.414/total.gistic.bychr22.csv")
 
 
+
+
+
+
 ## Hg + Lg, with angiomatous/rhaboid separated
 
 total.table <- master.table[master.table$Analsysis.Set. == 1 | master.table$Cohort == "PH", ]
 
-total.table <- total.table[order(total.table$Heatmap.Grade, -total.table$chr22.loss), ]
+total.table <- total.table[order(total.table$Heatmap.Grade, -as.numeric(total.table$XRT..preop.radiation) , -as.numeric(total.table$XRT..radiation.induced)
+                                 , -total.table$Chr1p.loss), ]
 
-write.table(total.table[, 3], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/finalized_clustering_order.txt",
+write.table(total.table[, 3], "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/mutations/Heatmap.Comut/Heatmap/finalized_clustering_order_10.19.txt",
             sep = "\t", row.names = F, quote = F)
 
-write.csv(total.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Heatmap/finalized_clustering_order_comut.txt")
+write.csv(total.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/mutations/Heatmap.Comut/Heatmap/finalized_clustering_order_10.19_comut.csv")
 
 disc.table <- master.table[master.table$Analsysis.Set. == 1, ]
 disc.table <- disc.table[!is.na(disc.table$Analsysis.Set.), ]
@@ -205,6 +220,10 @@ massive.table <- massive.table[order(massive.table$Simple.Histopath.Grade, -mass
                                      -massive.table$TRAF7, -massive.table$KLF4, -massive.table$AKT1, -massive.table$SMO), ]
 write.csv(massive.table, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heatmap.Comut/Master.Comut/master.comut.updateder.csv")
 
+## for excel
+table(massive.table$Simple.Grade, massive.table$TKAS)
+table(massive.table$Simple.Grade, massive.table$chr22.loss == 1 | massive.table$NF2.snp.indel.rearrangement == 1)
+
 
 ## p values for major mutation classes
 fisher.test(table(massive.table$chr22.loss, massive.table$TKAS))
@@ -227,6 +246,13 @@ fisher.test(table(massive.table[massive.table$chr22.loss == T,]$NF2.snp.indel.re
 ## mutual exclusivity of TKAS and NF2 in high grades
 fisher.test(table(massive.table[massive.table$Simple.Grade == 2, ]$chr22.loss, massive.table[massive.table$Simple.Grade == 2, ]$TKAS))
 
+## p value for NF2/non-nf2 differences across grades
+fisher.test(table(massive.table$Simple.Grade,(massive.table$chr22.loss == T | massive.table$NF2.snp.indel.rearrangement == T)))
+
+## exclusivity of nf2/tkas within chr22 samples
+table(massive.table$chr22.loss)
+
+fisher.test(table(massive.table[massive.table$chr22.loss == 1, ]$TKAS, massive.table[massive.table$chr22.loss == 1, ]$NF2.snp.indel.rearrangement))
 # p value for difference in NF2 inactivation rates
 
 fisher.test(table(disc.snindels$Hugo_Symbol == "NF2", disc.snindels$Variant_Classification %in% c("Frame_Shift_Del", "Nonsense_Mutation","Splice_Site")))
@@ -234,6 +260,66 @@ fisher.test(table(disc.snindels$Hugo_Symbol == "NF2", disc.snindels$Variant_Clas
 table(disc.snindels.clean$Hugo_Symbol)[order(table(disc.snindels.clean$Hugo_Symbol), decreasing = T)][1:62]
 
 
+## chr 22 loss incidence comparison
+fisher.test(table(total.table$chr22.loss, total.table$Simple.Grade))
+
+## genomic disruption comparison
+t.test(total.table[total.table$Simple.Grade == 1 & total.table$Heatmap.Grade != 1.3, ]$percent.disruption, 
+       total.table[total.table$Simple.Grade == 2 & total.table$Heatmap.Grade != 1.8, ]$percent.disruption)
+
+## location comparison
+loclass.table <- master.table[master.table$Loclass2 %in% c("1", "2", "3", "4", "5") & master.table$Master.Cohort == 1, ]
+
+chisq.test(table(loclass.table$Simple.Grade, loclass.table$Loclass2))
+table(loclass.table[loclass.table$Simple.Grade == 2, ]$chr22.loss, 
+      loclass.table[loclass.table$Simple.Grade == 2, ]$Loclass2)
+
+table(disc.table$Subtype, disc.table$Loclass2)
+## look at age and gender in high grades
+table(disc.table$NF2.snp.indel.rearrangement, disc.table$Gender)
+table(massive.table[massive.table$Simple.Grade == 1, ]$NF2.snp.indel.rearrangement, massive.table[massive.table$Simple.Grade == 1, ]$Gender)
+table(massive.table[massive.table$Simple.Grade == 2, ]$NF2.snp.indel.rearrangement, massive.table[massive.table$Simple.Grade == 2, ]$Gender)
+
+table(massive.table[massive.table$Simple.Grade == 1, ]$TKAS, massive.table[massive.table$Simple.Grade == 1, ]$Gender)
+table(massive.table[massive.table$Simple.Grade == 2, ]$TKAS, massive.table[massive.table$Simple.Grade == 2, ]$Gender)
+
+table(massive.table[massive.table$Simple.Grade == 1, ]$Loclass2, massive.table[massive.table$Simple.Grade == 1, ]$Gender)
+table(massive.table[massive.table$Simple.Grade == 2, ]$Loclass2, massive.table[massive.table$Simple.Grade == 2, ]$Gender)
+
+t.test(disc.table[disc.table$Gender == "F", ]$nonsynoymous.mutations.high.af, disc.table[disc.table$Gender == "M", ]$nonsynoymous.mutations.high.af)
+t.test(disc.table[disc.table$Gender == "F", ]$percent.disruption, disc.table[disc.table$Gender == "M", ]$percent.disruption)
+
+t.test(as.numeric(massive.table[massive.table$Gender == "F", ]$Age), as.numeric(massive.table[massive.table$Gender == "M", ]$Age))
+t.test(as.numeric(massive.table[massive.table$Simple.Grade == 1, ]$Age), as.numeric(massive.table[massive.table$Simple.Grade == 2, ]$Age))
+
+t.test(as.numeric(massive.table[massive.table$Simple.Grade == 1 & massive.table$NF2.snp.indel.rearrangement == 1, ]$Age), 
+      as.numeric(massive.table[massive.table$Simple.Grade == 1 & massive.table$NF2.snp.indel.rearrangement == 0, ]$Age))
+
+
+
+table(massive.table$Gender, massive.table$Simple.Grade)
+
+
+
+## NF2 allelic fraction comparison
+all.nf2 <- c(val.snindels[val.snindels$Hugo_Symbol == "NF2", ]$i_tumor_f, disc.snindels[disc.snindels$Hugo_Symbol == "NF2", ]$i_tumor_f)
+
+all.nonf2 <- c(val.snindels[val.snindels$Hugo_Symbol != "NF2", ]$i_tumor_f, disc.snindels[disc.snindels$Hugo_Symbol != "NF2", ]$i_tumor_f)
+
+t.test(all.nf2, all.nonf2)
+
+## most common non-nf2 mutations
+
+total.cohort <- rbind(val.snindels, disc.snindels[, -6])
+total.cohort <- total.cohort[total.cohort$i_tumor_f > .1, ]
+total.cohort <- PerSampleMaf(total.cohort, "Hugo_Symbol")
+sort(table(total.cohort$Hugo_Symbol))
+
+## check and see how many genes in discovery were in validation list
+
+validation.gene.list <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutations/validation_list.txt", 
+                                    stringsAsFactors = F)
+validation.gene.list$Gene[validation.gene.list$Gene %in% disc.snindels.2$Hugo_Symbol]
 
 ## investigate suspicious samples
 
@@ -320,10 +406,15 @@ wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$nonsynoymo
 
 ## copy number
 
+cn.table <- master.table[master.table$Analsysis.Set. == 1 & master.table$Heatmap.Grade != 1.8, ]
+
+wilcox.test(cn.table[cn.table$chr22.loss == 1, ]$percent.disruption,
+            cn.table[cn.table$chr22.loss == 0, ]$percent.disruption)
+
 wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$percent.disruption,
             disc.table[disc.table$NF2.snp.indel.rearrangement == 0, ]$percent.disruption)
 
-wilcox.test(disc.table[disc.table$chr22.loss == 1, ]$percent.disruption,
+t.test(disc.table[disc.table$chr22.loss == 1, ]$percent.disruption,
             disc.table[disc.table$chr22.loss == 0, ]$percent.disruption)
 
 wilcox.test(disc.table[disc.table$NF2.snp.indel.rearrangement == 1, ]$percent.disruption,
@@ -344,6 +435,9 @@ wilcox.test(wg.table[wg.table$NF2.snp.indel.rearrangement == 1, ]$rearrangement.
 
 fisher.test(table(wg.table$complex.event, wg.table$XRT..preop.radiation))
 wilcox.test(wg.table[wg.table$XRT..preop.radiation == 1, ]$rearrangement.burden, wg.table[wg.table$XRT..preop.radiation == 0, ]$rearrangement.burden )
+
+sd(massive.table[massive.table$Analsysis.Set. == 1, ]$rearrangement.burden, na.rm = T)
+sd(massive.table[massive.table$Cohort == "PH", ]$rearrangement.burden, na.rm = T)
 
 
 ## fisher's tests
@@ -376,9 +470,32 @@ lg.coding.snps <- FilterMaf(ph.snps, c("Silent", snp.variants), "Variant_Classif
 PlotMaf(disc.snindels, "Hugo_Symbol", percent = 5)
 
 
+## power calculations
+power <- c()
+mut.rate <- seq(.05, .22, .005)
+
+for(i in 1:length(mut.rate)){
+    power <- c(power, pbinom(14, 115, mut.rate[i], FALSE))
+    
+}
+
+plot(mut.rate, power, xlab = "Mutation Rate", ylab = "Power to Detect Mutations", 
+     main = "Figure 5: Power Calculation", pch = 16)
+
+
+legend("topleft", c("Power for at least 3 mutations", "Power for at least 4 mutations", 
+                    "At least 3 mutations, 10 bad samples", 
+                    "At least 4 mutations, 10 bad samples"), pch =c(0, 15, 1, 16))
 
 
 
+## differnce in pathway mutations
+druggable.table <- master.table[master.table$Cohort %in% c("PH", "Discovery", "ccgd.hg", "ccgd.lg", "ccgd.tbd", "Clark"), ]
+druggable.table <- druggable.table[druggable.table$Master.Cohort == 1, ]
+druggable.table <- druggable.table[!is.na(druggable.table$PIK3CA), ]
+
+drug.table <- table(druggable.table$Simple.Grade, !(druggable.table$AKT1 == 1 | druggable.table$SMO == 1 | druggable.table$PIK3CA == 1))
+fisher.test(drug.table)
 
 ## Plot allelic fraction of detected mutations in interesting cases
 
@@ -421,6 +538,10 @@ counts <- c(counts, sum(total.table$Grade != "I" & total.table$Subtype != "Rhabd
 rhab.mtrx <- matrix(counts, nrow = 2)
 fisher.test(rhab.mtrx)
 
+## mib1 disruption comparison
+mib <- master.table[master.table$Analsysis.Set. == 1 & !(master.table$MIB1.Quant == "") & !(master.table$percent.disruption == ""), ]
+
+plot(mib$MIB1.Quant, mib$percent.disruption)
 
 ## generate mutation counts for dotplot
 pancan <- read.delim("C:/Users/Noah/Documents/Big Files/dbs/compact.data.v3.maf", stringsAsFactors = F)

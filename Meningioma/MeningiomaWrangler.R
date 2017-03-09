@@ -14,8 +14,8 @@ discovery.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda 
 discovery.indel <- NULL
 for (i in 1:length(list.files(discovery.indel.folder))){
     temp <- read.delim(paste(discovery.indel.folder, list.files(discovery.indel.folder)[i], sep = "/"),
-                     stringsAsFactors = F, comment.char = "#")
-## renames to pair    
+                       stringsAsFactors = F, comment.char = "#")
+    ## renames to pair    
     if (nrow(temp) > 0){
         temp[, 16] <-  strsplit(list.files(discovery.indel.folder)[i], ".indel")[[1]][1]
         discovery.indel <- rbind(discovery.indel, temp)
@@ -24,13 +24,14 @@ for (i in 1:length(list.files(discovery.indel.folder))){
 
 discovery.coding.indels <- FilterMaf(discovery.indel, indel.variants, "Variant_Classification")
 
+## sets up first case
 discovery.snps <- read.delim(paste(discovery.snps.folder, list.files(discovery.snps.folder)[61], sep = "/"),
                              stringsAsFactors = F, comment.char = "#")
 discovery.snps[, 16] <- "MEN0120-P1"
 discovery.snps <- discovery.snps[, c(1:90, 266,283,290)]
 for (i in 1:length(list.files(discovery.snps.folder))){
     temp <- read.delim(paste(discovery.snps.folder, list.files(discovery.snps.folder)[i], sep = "/"),
-                      stringsAsFactors = F, comment.char = "#")
+                       stringsAsFactors = F, comment.char = "#")
     if (ncol(temp) == 272){
         temp[, 16] <-  strsplit(list.files(discovery.snps.folder)[i], ".snp")[[1]][1]
         temp[, 273:290] <- NA
@@ -43,6 +44,11 @@ for (i in 1:length(list.files(discovery.snps.folder))){
         print("hello")
     }
 }    
+write.table(discovery.snps, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/discovery.mutations.txt", sep = "\t",
+            row.names = F, quote = F)
+
+write.table(discovery.indel, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/discovery.indels.txt", sep = "\t",
+            row.names = F, quote = F)
 
 discovery.coding.snps <- FilterMaf(discovery.snps, snp.variants, "Variant_Classification")
 discovery.duplicate.snps <-  FilterMaf(discovery.snps, c(snp.variants, "Silent"), "Variant_Classification")
@@ -52,7 +58,7 @@ mini.disc.snps <- discovery.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_S
                                             "COSMIC_total_alterations_in_gene")]
 
 mini.disc.dup.snps <- discovery.duplicate.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position", 
-                                            "COSMIC_total_alterations_in_gene")]
+                                                   "COSMIC_total_alterations_in_gene")]
 
 ## snowman
 # mini.disc.indels <- discovery.coding.indels[, c("Hugo_Symbol", "i_read_depth", "i_allelic_depth", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position",
@@ -76,9 +82,13 @@ disc.snindels.duplicates <- disc.snindels.duplicates[!mt.bool, ]
 
 
 orphans <- FilterMaf(disc.snindels.all, c("MEN0093G-P2", "MEN0109-P", "MEN0110-P"), "Tumor_Sample_Barcode")
-disc.snindels <- FilterMaf(disc.snindels.all, hg.list[!is.na(hg.list)], "Tumor_Sample_Barcode")
+hg.list <- master.table[master.table$Analsysis.Set. == 1, ]$Pair.Name
+hg.list <- hg.list[!is.na(hg.list)]
+disc.snindels <- FilterMaf(disc.snindels.all, hg.list, "Tumor_Sample_Barcode")
 disc.snindels.clean <- disc.snindels[disc.snindels$i_tumor_f > .0999, ]
 disc.snindels.clean <- PerSampleMaf(disc.snindels.clean, "Hugo_Symbol")
+disc.snindels.2 <- ReccurentMaf(disc.snindels.clean, "Hugo_Symbol")
+
 
 ph.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/LG")
 ph.indel.folder <- ("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/LG")
@@ -96,7 +106,7 @@ for (i in 1:length(list.files(ph.indel.folder))){
 ph.coding.indels <- FilterMaf(ph.indel, indel.variants, "Variant_Classification")
 
 ph.snps <- read.delim(paste(ph.snps.folder, list.files(ph.snps.folder)[63], sep = "/"),
-                             stringsAsFactors = F, comment.char = "#")
+                      stringsAsFactors = F, comment.char = "#")
 ph.snps[, 16] <- "MENex006-pair"
 ph.snps <- ph.snps[, c(1:90, 266,283,290)]
 for (i in 1:length(list.files(ph.snps.folder))){
@@ -172,8 +182,8 @@ for (i in 1:length(list.files(ph.rearrangements.folder))){
 
 ph.rearrangements <- ph.rearrangements[ph.rearrangements$somatic_lod > 4, ]
 ph.rearrangements[, 38:39] <- NA
-    
-    
+
+
 ph.rearrangements[ph.rearrangements$gene1 == "NF2" | ph.rearrangements$gene2 == "NF2", 27:36]
 
 
@@ -189,32 +199,58 @@ colnames(gistic.calls) <- arms
 
 validation.snps.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/Validation")
 validation.snps <- NULL
-for (i in 1:length(list.files(validation.snps.folder))){
+for (i in 2:length(list.files(validation.snps.folder))){
     temp <- read.delim(paste(validation.snps.folder, list.files(validation.snps.folder)[i], sep = "/"),
-                     stringsAsFactors = F, comment.char = "#")
+                       stringsAsFactors = F, comment.char = "#")
     print(i)
     validation.snps <- rbind(validation.snps, temp)    
 }
 
+write.table(validation.snps, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/validation.snps.txt", sep = "\t",
+            row.names = F, quote = F)
+
+validation.snps <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/validation.snps.txt", stringsAsFactors = F)
+
+validation.snps <- run.pon(validation.snps, -1.5)
+validation.snps <- run.exac(validation.snps, .0001)
+validation.snps <- run.esp(validation.snps, .0001)
 
 validation.coding.snps <- FilterMaf(validation.snps, snp.variants, "Variant_Classification")
 
+validation.coding.snps <- validation.coding.snps[!(is.na(validation.coding.snps$pon_loglike)), ]
 validation.coding.snps <- run.pon(validation.coding.snps, -1.5)
 validation.coding.snps <- run.exac(validation.coding.snps, .0001)
 validation.coding.snps <- run.esp(validation.coding.snps, .0001)
 
 
-validation.filtered.coding.snps <- validation.coding.snps[validation.coding.snps$pon_germline == F &
-                                                                       validation.coding.snps$germline == F & validation.coding.snps$esp_germline == F, ]
+validation.filtered.coding.snps <- validation.coding.snps[validation.coding.snps$pon_germline == F & validation.coding.snps$germline == F & 
+                                                              validation.coding.snps$esp_germline == F, ]
+
+write.table(validation.filtered.coding.snps, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/validation.filtered.coding.snps.txt", sep = "\t",
+            row.names = F, quote = F)
+
+validation.filtered.coding.snps <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Mutect/validation.filtered.coding.snps.txt", stringsAsFactors = F)
+
+
 
 validation.indels.folder <-("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/Validation")
 validation.indels <- NULL
-for (i in 1:length(list.files(validation.indels.folder))){
+for (i in 2:length(list.files(validation.indels.folder))){
     temp <- read.delim(paste(validation.indels.folder, list.files(validation.indels.folder)[i], sep = "/"),
                        stringsAsFactors = F, comment.char = "#")
     validation.indels <- rbind(validation.indels, temp)    
-
+    
 }
+
+write.table(validation.indels, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/validation.indels.txt", sep = "\t",
+            row.names = F, quote = F)
+
+validation.indels <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/validation.indels.txt", stringsAsFactors = F)
+
+validation.indels <- run.pon(validation.indels, -1.5)
+validation.indels <- run.exac(validation.indels, .0001)
+validation.indels <- run.esp(validation.indels, .0001)
+
 
 
 validation.coding.indels <- FilterMaf(validation.indels, indel.variants, "Variant_Classification")
@@ -225,7 +261,14 @@ validation.coding.indels <- run.esp(validation.coding.indels, .0001)
 
 
 validation.filtered.coding.indels <- validation.coding.indels[validation.coding.indels$germline == F &
-                                                                           validation.coding.indels$pon_germline == F & validation.coding.indels$esp_germline == F, ]
+                                                                  validation.coding.indels$pon_germline == F & validation.coding.indels$esp_germline == F, ]
+
+write.table(validation.filtered.coding.indels, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/validation.filtered.coding.indels.txt", sep = "\t",
+            row.names = F, quote = F)
+
+validation.filtered.coding.indels <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Indelocator/validation.filtered.coding.indels.txt", stringsAsFactors = F)
+
+
 
 ## combine validation mutations
 mini.val.snps <- validation.filtered.coding.snps[, c("Hugo_Symbol", "i_tumor_f", "Tumor_Sample_Barcode", "Variant_Classification", "Start_position")]
@@ -242,7 +285,15 @@ for (i in 1:nrow(ccgd.snindels)){
 }
 
 ccgd.snindels <- FilterMaf(ccgd.snindels, unique(master.table[master.table$Cohort %in% c("ccgd.lg", "ccgd.hg", "ccgd.tbd"), ]$Pair.Name), "Tumor_Sample_Barcode")
-val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Simple.Histopath.Grade == 2 & master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name,"Tumor_Sample_Barcode" )
+val.snindels <- FilterMaf(ccgd.snindels, master.table[master.table$Cohort %in% c("ccgd.hg", "ccgd.tbd"), ]$Pair.Name,"Tumor_Sample_Barcode" )
+
+
+write.table(ccgd.snindels, "C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Validation Analysis/filtered_calls.txt", 
+            row.names = F, sep ="\t")
+ccgd.snindels <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Validation Analysis/filtered_calls.txt", 
+                                              stringsAsFactors = F)
+
+
 
 
 
