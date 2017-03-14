@@ -1,0 +1,62 @@
+## calculations for revision
+
+
+## read in GCT from genepattern 
+expression <- read.delim("C:/Users/noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Expression/files/1445672.expression.gct", stringsAsFactors = F, header = F)
+expression.cleaned <- expression
+colnames(expression.cleaned) <- expression.cleaned[3, ]
+expression.cleaned <- expression.cleaned[-(1:3), ]
+
+## remove NA's
+table(expression.cleaned$Description == "NA // NA // NA")
+expression.gene <- expression.cleaned[expression.cleaned$Description != "NA // NA // NA", ]
+expression.gene$gene1 <- "NA"
+expression.gene$gene2 <- "NA"
+expression.gene$gene3 <- "NA"
+expression.gene.named <- expression.gene
+
+
+## split gene names into unique columns
+for (i in 1:nrow(expression.gene)){
+    expression.gene.named[i, 17:19] <- strsplit(expression.gene$Description[i], " // ")[[1]]
+    
+}
+
+expression.gene.named$mean <- rowSums(data.matrix(expression.gene.named[, 3:16]))
+fivenum(expression.gene.named$mean)
+boxplot.stats(expression.gene.named$mean)
+quantile(expression.gene.named$mean, probs = seq(0,1, .1))
+hist(expression.gene.named$mean)
+expression.high <- expression.gene.named[expression.gene.named$mean > 73, ]
+hist(expression.gene.named$mean)
+
+481 / (1361 + 481)
+
+
+## check and see which genes show up in oncopanel
+samples <- read.delim("C:/Users/Noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Oncopanel/Sample_names.txt", stringsAsFactors = F, strip.white = T)
+idx <- unique(samples$MG.149) %in% ccgd.snindels$Tumor_Sample_Barcode
+unique(samples$MG.149.tumor)[idx]
+unique(samples$MG.149.tumor)[!idx]
+
+mutations <- ccgd.snindels[ccgd.snindels$Tumor_Sample_Barcode %in% unique(samples$MG.149.tumor), ]
+
+mutations <- mutations[mutations$Hugo_Symbol %in% genes$Genes, ]
+genes <- read.delim("C:/Users/Noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Oncopanel/Gene_list.txt", stringsAsFactors = F, strip.white = T)
+
+View(validation.coding.snps[validation.coding.snps$Tumor_Sample_Barcode == "MG-229-tumor", ])
+table(validation.coding.snps$Tumor_Sample_Barcode == "MG-59-tumor")
+
+write.csv(mutations, "C:/Users/Noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Oncopanel/potential_genes.csv", row.names = F)
+
+
+genes.val <- read.delim("C:/Users/Noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Oncopanel/validation_gene_list.txt", stringsAsFactors = F, strip.white = T)
+genes.val <- genes.val[-157, ]
+
+samples.val <- disc.snindels.all[disc.snindels.all$Tumor_Sample_Barcode %in% c("MEN0100-P", "MEN0105-P", "MEN0092-P", "MEN0103-P", "MEN0108-P", 
+                                                                               "MEN0119-P1", "MEN0102-P", "MEN0099-P", "MEN0025G-P", "MEN0104-P", "MEN0095-P"), ]
+samples.val <- samples.val[samples.val$Hugo_Symbol %in% genes.val, ]
+
+write.csv(samples.val, "C:/Users/Noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Oncopanel/targeted_validation_overlap.csv", row.names = F)
+
+View(ccgd.snindels[ccgd.snindels$Tumor_Sample_Barcode == "MG-69-tumor", ])
