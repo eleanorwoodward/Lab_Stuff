@@ -7,6 +7,7 @@ master.sheet <- read.csv("REQ_ID08_65337_ONCOPANEL_SPECIMEN.csv", stringsAsFacto
 oncomap <- read.csv("REQ_ID08_65337_ONCOMAP_MUT_RESULTS_PROFILE.csv", stringsAsFactors = F)
 oncomap$na_column <- NA
 cancer.diag <- read.csv("REQ_ID08_65337_CANCER_DIAGNOSIS_CAREG.csv", stringsAsFactors = F)
+identifiers <- read.csv("REQ_ID08_65337_PT_INFO_STATUS_REGISTRATION.csv", stringsAsFactors = F)
 master.sheet.short <- master.sheet[, c("PATIENT_ID", "SAMPLE_ACCESSION_NBR", "PRIMARY_CANCER_DIAGNOSIS", "ORIGINAL_PATH_DIAGNOSIS", 
                                        "BIOPSY_SITE", "BIOPSY_SITE_TYPE", "TUMOR_PURITY", "PANEL_VERSION", "REPORT_DT", "REPORT_COMMENT", "SNV_COUNT")]
 
@@ -58,12 +59,25 @@ for (i in 1:nrow(master.sheet.short)){
     }
 }
 
+master.sheet.short$MRN <- NA
+for (i in 1:nrow(master.sheet.short)){
+    id <- master.sheet.short$PATIENT_ID[i]
+    mrn <- identifiers[identifiers$PATIENT_ID == id, ]$BWH_MRN
+    master.sheet.short$MRN[i] <- mrn
+}
+
 
 ## TODO: add code for processing aCGH data
 
 
 
 ## write cleaned up table for manual review
-master.sheet.ordered <- cbind(master.sheet.short[, 1:4], master.sheet.short$Cancer_Diagnosis_Detailed, master.sheet.short[, 6:14])
-write.table(master.sheet.ordered, "master.sheet.tsv", sep = "\t", row.names = F, quote = F)
+master.sheet.ordered <- master.sheet.short[, c("PATIENT_ID", "MRN", "SAMPLE_ACCESSION_NBR", "PRIMARY_CANCER_DIAGNOSIS", "ORIGINAL_PATH_DIAGNOSIS", 
+                                               "Cancer_Diagnosis_Detailed", colnames(master.sheet.short)[6:14])]
+
+## remove /t symbols to enable effecient writing to excel
+master.sheet.ordered$REPORT_COMMENT<- sapply(1:nrow(master.sheet.ordered), function(x){gsub("\t", "", master.sheet.ordered$REPORT_COMMENT[x])})
+
+
+write.table(master.sheet.ordered, "../Analysis/master.sheet.tsv", row.names = F, sep = "\t")
 
