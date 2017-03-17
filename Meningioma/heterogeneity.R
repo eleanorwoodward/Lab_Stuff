@@ -2,8 +2,13 @@
 
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 
+## analysis of heterogeneity section of the manuscript
+
+## read in gistic arm-level calls for all samples in cohort
 copy.number.calls <- read.delim("C:/Users/Noah/Syncplicity Folders/Meningioma (Linda Bi)/Figs/Heterogeneity/data/broad_values_by_arm_manual_review.txt", stringsAsFactors = F)
 copy.number.binary <- copy.number.calls
+
+## remove magnitude information, replace with present (1) or absent (0) identifiers for each event in each sample
 for(i in 2:ncol(copy.number.calls)){
     for(j in 1:nrow(copy.number.calls)){
         if(copy.number.calls[j,i] != 0){
@@ -15,16 +20,16 @@ for(i in 2:ncol(copy.number.calls)){
 
 ## Generate separate mafs for each sample to be analzyed
 
-
 input.list <- list(c("MEN0030.TumorA", "MEN0030.TumorB"), c("MEN0042.TumorA", "MEN0042.TumorB", "MEN0042.TumorC"), 
                    c("MEN0045.TumorA", "MEN0045.TumorB", "MEN0045.TumorC", "MEN0045.TumorD", "MEN0045.TumorE"), c("MEN0048.TumorA", "MEN0048.TumorD", "MEN0048.TumorB", "MEN0048.TumorC"),
                    c("MEN0093.TumorC", "MEN0093.TumorD", "MEN0093.TumorA", "MEN0093.TumorE"), c("MEN0097.Tumor", "MEN0097.TumorA", "MEN0097.TumorB", "MEN0097.TumorC"),
                    c("MEN0101.TumorB", "MEN0101.Tumor"), c("MEN0118.TumorA", "MEN0118.TumorB"), c("MEN0119.TumorA", "MEN0119.TumorB"), c("MEN0120.Tumor", "MEN0120.TumorB"), 
                    c("MEN0121.TumorA", "MEN0121.TumorB", "MEN0121.TumorC", "MEN0121.TumorD"), c("MEN0122_RBM.TumorA", "MEN0122_RBM.TumorB", "MEN0122_RBM.TumorC",
                                                                                                 "MEN0122_RBM.TumorD", "MEN0122_RBM.TumorE"))
-
+## identify which samples in each list element is the primary tumor
 primary.list <- c(1, 1, 1, 1,2,1,1,1,1,1)
 
+## initiatlize all variables
 private.muts <- c()
 ubiq.muts <- c()
 percent.muts <- c()
@@ -41,6 +46,7 @@ for (h in 1:length(input.list)){
     ## loops through list of mafs, annotating master maf with presence or absence for each unique mutation
     for (i in 1:length(input.list[[h]])){
         ## sets up relevant info for each sample
+        ## takes mutation data from mutations section
         sample.name <- input.list[[h]][i]
         pair.name <- master.table[master.table$Tumor.Name == sample.name, ]$Pair.Name
         mutations <- FilterMaf(disc.snindels.duplicates, pair.name,"Tumor_Sample_Barcode")

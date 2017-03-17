@@ -2,12 +2,15 @@
 ## Checks MAF file against EXAC database of known germline mutations, with threshold AF in order to be called as germline
 ## Assuming maximum number of alleles (120,000), a variant seen in 12 samples will have an AF of 12/120,000 = .0001
 
-run.exac <- function(maf, af = 0){
+## sets defaults based on Mutect output, can be customized for other formats
+run.exac <- function(maf, Start_position = Start_position, Chromosome = Chromosome, Variant_Type = Variant_Type, Tumor_Seq_Allele2 = Tumor_Seq_Allele2,
+                     af = 0){
   
+  print("reading in Exac list")
   total.exac <- read.delim('C:/Users/Noah/Documents/Big Files/dbs/germline_37k_split_mult_alleles.AF.INFO',
                                       stringsAsFactors = FALSE)
     
-  idx <- which(total.exac$POS %in% maf$Start_position)
+  idx <- which(total.exac$POS %in% maf[, Start_position])
   exac <- total.exac[idx, ]
   
   # Goal is to annotate the maf with the germline data
@@ -20,17 +23,17 @@ run.exac <- function(maf, af = 0){
     }
     
     ## Get all matches at current position
-    match.idx <- which((exac$CHROM == maf$Chromosome[i]) & (exac$POS == maf$Start_position[i]) & exac$AF > af)
+    match.idx <- which((exac$CHROM == maf[, Chromosome][i]) & (exac$POS == maf[, Start_position][i]) & exac$AF > af)
   
   ## Deal with SNPs first   
-  if (maf$Variant_Type[i] == "SNP"){
+  if (maf[, Variant_Type][i] == "SNP"){
     
     ## Keeps only those exac hits which have single nucleotide changes
     temp.idx <- which(nchar(exac$REF[match.idx]) & nchar(exac$ALT[match.idx]) == 1)
     snp.idx <- match.idx[temp.idx]
     
     # Make sure SNP at given position is same base pair change
-    tmp.idx <- which(maf$Tumor_Seq_Allele2[i] == exac$ALT[snp.idx])
+    tmp.idx <- which(maf[, Tumor_Seq_Allele2][i] == exac$ALT[snp.idx])
     snp.idx <- snp.idx[tmp.idx]
     
     if (length(snp.idx) > 0){

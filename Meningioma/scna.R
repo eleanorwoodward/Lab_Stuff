@@ -2,6 +2,7 @@
 
 source("C:/Users/Noah/OneDrive/Work/R/Scripts/MafFunctions.R")
 
+
 distances <- dist(gistic.calls)
 model <- hclust(distances)
 plot(model)

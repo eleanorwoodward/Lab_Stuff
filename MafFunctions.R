@@ -7,7 +7,7 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//ESPFi
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//PoNFilter.R")
 source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/Meningioma/Filtering//CallCompare.R")
 
-# source("http://www.bioconductor.org/biocLite.R")
+source("http://www.bioconductor.org/biocLite.R")
 # biocLite(c("rtracklayer", "AnnotationHub", "Rsamtools"))
 # install.packages("dplyr")
 # install.packages("ggplot2")
@@ -24,9 +24,8 @@ library(rtracklayer)
 library(ggplot2)
 library(curl)
 library(R.utils)
-library(NMF)
 library(Biobase)
-library(kohonen)
+#library(kohonen)
 library(nycflights13)
 
 ## ggplot settings

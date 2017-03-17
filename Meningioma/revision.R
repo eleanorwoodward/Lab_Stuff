@@ -1,23 +1,7 @@
 ## calculations for revision
-validation.snps[validation.snps$Tumor_Sample_Barcode == "MG-40-tumor" & validation.snps$Hugo_Symbol == "NF2", ][, c("Hugo_Symbol", "Variant_Classification", 
-                                                                                                                     "Protein_Change", "Codon_Change", "Start_position")]
 
-validation.indels[validation.indels$Tumor_Sample_Barcode == "MG-193-tumor" &ver validation.indels$Hugo_Symbol == "NF2", ][, c("Hugo_Symbol", "Variant_Classification", 
-                                                                                                                        "Protein_Change", "Codon_Change")]
-
-discovery.coding.snps[discovery.coding.snps$Tumor_Sample_Barcode == "MEN0095-P" & discovery.coding.snps$Hugo_Symbol == "NF2",
-                    ][, c("Hugo_Symbol", "Variant_Classification", "Protein_Change", "Codon_Change")]
-
-discovery.coding.indels[discovery.coding.indels$Tumor_Sample_Barcode == "MEN0025-P" & discovery.coding.indels$Hugo_Symbol == "NF2",
-                      ][, c("Hugo_Symbol", "Variant_Classification", "Protein_Change", "Codon_Change")]
-
-ph.indel[ph.indel$Tumor_Sample_Barcode == "MEN_PH_LG_43-pair", ][, c("Hugo_Symbol", "Variant_Classification", "Protein_Change", "Codon_Change")]
-                                                                                      
-ph.indel[ph.indel$Tumor_Sample_Barcode == "MEN0019-pair" & ph.indel$Hugo_Symbol == "NF2", ][, c("Hugo_Symbol", "Variant_Classification", "Protein_Change", "Codon_Change")]
-
-
-
-## expression analysis
+## calculates
+# expression analysis
 ## taken from tutorial at http://homer.salk.edu/homer/basicTutorial/affymetrix.html
 file.folder <- "C:/Users/Noah/Dropbox/Work/Meningioma/Genomic Medicine Revision/Expression/files/"
 source("http://bioconductor.org/biocLite.R")

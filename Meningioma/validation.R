@@ -1,14 +1,13 @@
-## Validation Analysis
+## Analysis of validation cohort
 
 ## compute probability of seeing given number of muts based on priors of discovery rate
 
+## which mutations would we expected to see at given rate based on incidence in discovery cohort
 disc.count <- 3
 disc.size <- 37
 val.count <-11
 val.size <- 69
 prob <- 1 - pbinom(val.count - 1, val.size, disc.count / disc.size)
-
-
 
 
 ## figures out which validation genes to get rid of. 
