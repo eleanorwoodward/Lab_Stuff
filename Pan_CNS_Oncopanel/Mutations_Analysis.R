@@ -5,12 +5,6 @@ source("C:/Users/Noah/OneDrive/Work/Coding/R/Scripts/MafFunctions.R")
 setwd("C:/Users/Noah/Syncplicity Folders/Pan-CNS Oncopanel/Analysis")
 
 
-## read in raw data 
-all.mutations <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_MUTATION_RESULTS.csv", stringsAsFactors = F)
-all.mutations.tier1.3 <- all.mutations[all.mutations$TIER_ID < 4, ]
-all.mutations.tier1.4 <- all.mutations[all.mutations$TIER_ID < 5, ]
-all.cnvs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_CNV_RESULTS.csv", stringsAsFactors = F)
-all.svs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_SV_RESULTS.csv", stringsAsFactors = F)
 
 ## read in cleaned master sheet with decoding
 master.sheet <- read.delim("Master_Sheet_R_Upload.txt", stringsAsFactors = F)
@@ -18,19 +12,19 @@ master.sheet <- read.delim("Master_Sheet_R_Upload.txt", stringsAsFactors = F)
 table(master.sheet$Cancer_Type_Broad)
 
 ## generate disease lists
-chondrosarcoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Chondrosarcoma", ]$PATIENT_ID)
-craniopharyngioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Craniopharyngioma", ]$PATIENT_ID)    
-ependymoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Ependymoma", ]$PATIENT_ID)
-glioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Glioma", ]$PATIENT_ID)
-lymphoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Lymphoma", ]$PATIENT_ID)
-medulloblastoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Medulloblastoma", ]$PATIENT_ID)
-meningioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Meningioma", ]$PATIENT_ID)
-metastasis <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Metastasis", ]$PATIENT_ID)
-neuroblastoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Neuroblastoma", ]$PATIENT_ID)
-pineal_parenchymal_tumor <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Pineal_parenchymal_tumor", ]$PATIENT_ID)
-pituitary_adenoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Pituitary_adenoma", ]$PATIENT_ID)
-pituitary_other <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Pituitary_other", ]$PATIENT_ID)
-schwannoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Schwannoma", ]$PATIENT_ID)
+chondrosarcoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Chondrosarcoma", ]$SAMPLE_ACCESSION_NBR)
+craniopharyngioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Craniopharyngioma", ]$SAMPLE_ACCESSION_NBR)    
+ependymoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Ependymoma", ]$SAMPLE_ACCESSION_NBR)
+glioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Glioma", ]$SAMPLE_ACCESSION_NBR)
+lymphoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Lymphoma", ]$SAMPLE_ACCESSION_NBR)
+medulloblastoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Medulloblastoma", ]$SAMPLE_ACCESSION_NBR)
+meningioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Meningioma", ]$SAMPLE_ACCESSION_NBR)
+metastasis <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Metastasis", ]$SAMPLE_ACCESSION_NBR)
+neuroblastoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Neuroblastoma", ]$SAMPLE_ACCESSION_NBR)
+pineal_parenchymal_tumor <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Pineal_parenchymal_tumor", ]$SAMPLE_ACCESSION_NBR)
+pituitary_adenoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Pituitary_adenoma", ]$SAMPLE_ACCESSION_NBR)
+pituitary_other <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Pituitary_other", ]$SAMPLE_ACCESSION_NBR)
+schwannoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Schwannoma", ]$SAMPLE_ACCESSION_NBR)
 
 
 pathologies <- list(chondrosarcoma, craniopharyngioma, ependymoma, glioma, lymphoma, medulloblastoma, meningioma, metastasis, neuroblastoma, 
@@ -43,7 +37,8 @@ names(pathologies) <- c("chondrosarcoma", "craniopharyngioma", "ependymoma", "gl
 
 ########### exploratory analysis plots
 
-## generates graph for all samples
+## Generates bar plots
+
 pdf("all_tier_1_to_3_mutations.pdf", width = 14)
 temp <- all.mutations.tier1.3
 temp$BEST_EFF_GENE <- factor(temp$BEST_EFF_GENE, levels = names(sort(table(temp$BEST_EFF_GENE), decreasing = T)))
@@ -53,19 +48,34 @@ labs(title = "All Tier 1 to 3 mutations") + theme(axis.text.x=element_text(angle
 dev.off()
 
 ## generates graph for specific subtypes of most frequently mutated genes
-file.path.base <- "all_tier_1_to_3_mutations_"
-title.base <- "All Tier 1 to 3 mutations in"
+file.path.base <- "_all_tier_1_to_4_mutations.pdf"
+title.base.count <- "All Tier 1 to 4 mutations in "
+title.base.percent <- 
 
 for (i in 1:length(pathologies)){
-    file.name <- paste(file.path.base, names(pathologies)[i], ".pdf", sep = "")
+    file.name <- paste(names(pathologies)[i], file.path.base, sep = "")
     pdf(file.name, width = 14)
     title <- paste(title.base, names(pathologies)[i])
-    temp <- all.mutations.tier1.3[all.mutations.tier1.3$PATIENT_ID %in% pathologies[[i]], ]
-    temp$BEST_EFF_GENE <- factor(temp$BEST_EFF_GENE, levels = names(sort(table(temp$BEST_EFF_GENE), decreasing = T)))
-    print(ggplot(data = subset(temp, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1:80]), aes(x = BEST_EFF_GENE)) + geom_bar() + labs(title = title) + 
+    temp <- all.mutations.tier1.4[all.mutations.tier1.4$SAMPLE_ACCESSION_NBR %in% pathologies[[i]], ]
+    temp.deduped <- PerSampleMaf(temp, "BEST_EFF_GENE", "SAMPLE_ACCESSION_NBR")
+    temp.deduped$BEST_EFF_GENE <- factor(temp.deduped$BEST_EFF_GENE, levels = names(sort(table(temp.deduped$BEST_EFF_GENE), decreasing = T)))
+    print(ggplot(data = subset(temp.deduped, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1:80]), aes(x = BEST_EFF_GENE)) + geom_bar() + labs(title = title) + 
     theme(axis.text.x=element_text(angle=90, hjust=1)) + rameen_theme)
     dev.off()
 }
+
+## generates comuts
+
+cutoffs <- c(1, 1, 1, .1, 1, 1, .5, .5, 1, 1, 1, 1, 1)
+for (i in 1:length(pathologies)){
+    
+    PlotComut(maf = subset(all.mutations.tier1.3, SAMPLE_ACCESSION_NBR %in% pathologies[[i]]), 
+              samples = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], select = SAMPLE_ACCESSION_NBR), input.samples = "SAMPLE_ACCESSION_NBR", 
+              input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification", gene.cutoff = cutoffs[i], file.path = paste(names(pathologies)[i], "1-3 comut.pdf"), 
+              unique.muts = unique(all.mutations$variant_classification), phenotypes = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], 
+              select = c("SAMPLE_ACCESSION_NBR","PANEL_VERSION", "CNV_ONC")), title = paste(names(pathologies)[i], " comut"))
+}
+
 
 
 ## recurrent hotspots across the cohort
@@ -74,13 +84,13 @@ for (i in 1:length(pathologies)){
 all.mutations.hotspot <- all.mutations
 
 #excludes major categories
-all.mutations.hotspot <- all.mutations[!(all.mutations$PATIENT_ID %in% c(pathologies[["glioma"]],pathologies[["meningioma"]], pathologies[["metastasis"]])), ] 
+all.mutations.hotspot <- all.mutations[!(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["glioma"]],pathologies[["meningioma"]], pathologies[["metastasis"]])), ] 
 
 ## individual tumor types
-all.mutations.hotspot <- all.mutations[(all.mutations$PATIENT_ID %in% c(pathologies[["glioma"]])), ]
-all.mutations.hotspot <- all.mutations[(all.mutations$PATIENT_ID %in% c(pathologies[["meningioma"]])), ]
-all.mutations.hotspot <- all.mutations[(all.mutations$PATIENT_ID %in% c(pathologies[["metastasis"]])), ]
-all.mutations.hotspot <- all.mutations[(all.mutations$PATIENT_ID %in% c(pathologies[["glioma"]])), ]
+all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["glioma"]])), ]
+all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["meningioma"]])), ]
+all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["metastasis"]])), ]
+all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["glioma"]])), ]
 
 gene.list <- sort(unique(all.mutations.hotspot$BEST_EFF_GENE))
 mtrx <- matrix(0, 41, length(gene.list))
@@ -184,79 +194,20 @@ final.list <- names(df)[1:(cutoff1 - 1)]
 ## add preprocessing to consolidate mutation class
 ## turn comut code into function
 
-## create comut
-## adapted from code at https://benchtobioinformatics.wordpress.com/2015/05/25/how-to-make-a-co-mutation-plot/
-samples <- unique(all.mutations$PATIENT_ID)[1:50]
-genes <- unique(all.mutations$BEST_EFF_GENE)[1:10]
-df <- expand.grid(genes, samples, stringsAsFactors = F)
-colnames(df) <- c("genes", "sample")
-df$mutation <- NA
-## loops through each row in df, determining if given gene is mutated in given sample, and if so, what type
-temp <- all.mutations.tier1.3
-
-for (i in 1:nrow(df)){
-    tmp.sample <- df$sample[i]
-    tmp.gene <- df$genes[i]
-    matches <- temp[temp$PATIENT_ID == tmp.sample & temp$BEST_EFF_GENE == tmp.gene, ]
-    if (nrow(matches) == 0){
-        ## do nothing
-    }else{
-        df$mutation[i] <- temp$BEST_EFF_VARIANT_CLASS[i]
-    }
-}
 
 
-df_sub <- subset(df, !is.na(df$mutation))
 
-ord <- names(sort(table(df_sub$genes), decreasing = T))
 
-# re-order rows with most frequently mutated gene on top?re
-df$genes <- factor(df$genes, levels = ord)
-df <- df[order(df$genes), ]
-df <- df[!is.na(df$genes), ]
+## plot mutations per gene with color based on underlying pathology
+temp <- merge(all.mutations.tier1.4, master.sheet[, c("SAMPLE_ACCESSION_NBR", "Cancer_Type_Broad")], "SAMPLE_ACCESSION_NBR")
+temp$BEST_EFF_GENE <- factor(temp$BEST_EFF_GENE, levels = names(sort(table(temp$BEST_EFF_GENE), decreasing = T)))
+print(ggplot(data = subset(temp, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1:80]), aes(x = BEST_EFF_GENE, fill = Cancer_Type_Broad)) + geom_bar() + labs(title = "title") + 
+    rameen_theme)
 
-## reshape to end result comut in order to properly order columns
-df.wide <- reshape(df, v.names = "mutation", idvar = "sample", timevar = "genes", direction = "wide")
-for (i in 2:ncol(df.wide)){
-    df.wide[, i][is.na(df.wide[, i])] <- "z"
-}
-df.wide$sample %in% df$sample
 
-## uses all columns
-df.wide <- df.wide[do.call(order, df.wide[, -1]), ]
+## plot percent of samples with a given alteration, controlling for # in which gene is covered
 
-## takes given order, and sorts samples based on ordering
-missing <- df$sample[!(df$sample %in% df.wide$sample)]
-df$sample <- factor(df$sample, levels = c(df.wide$sample, missing))
-str(df)
 
-## switches factor order back
-df$genes <- factor(df$genes, rev(levels(df$genes)))
-
-# now for a Comut plot with ggplot2
-mut <- ggplot(df, aes(x=sample, y=genes, height=0.8, width=0.8))
-(mut <- mut + geom_tile(aes(fill=mutation)) +
-    scale_fill_brewer(palette = "Set1", na.value="Grey90") +
-    xlab("Subject") +
-    ggtitle("Example Comut plot") +
-    theme(
-        legend.key = element_rect(fill='NA'),
-        legend.key.size = unit(0.4, 'cm'),
-        legend.title = element_blank(),
-        legend.position="bottom",
-        legend.text = element_text(size=8, face="bold"),
-        axis.ticks.x=element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.text.x=element_text(angle = 90, hjust = 1),
-        axis.text.y=element_text(colour="Black"),
-        axis.title.x=element_text(face="bold"),
-        axis.title.y=element_blank(),
-        panel.grid.major.x=element_blank(),
-        panel.grid.major.y=element_blank(),
-        panel.grid.minor.x=element_blank(),
-        panel.grid.minor.y=element_blank(),
-        panel.background=element_blank()
-    ))
 
 
 

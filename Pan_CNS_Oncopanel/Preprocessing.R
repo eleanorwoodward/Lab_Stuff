@@ -81,3 +81,39 @@ master.sheet.ordered$REPORT_COMMENT<- sapply(1:nrow(master.sheet.ordered), funct
 
 write.table(master.sheet.ordered, "../Analysis/master.sheet.tsv", row.names = F, sep = "\t")
 
+
+
+
+
+## read in raw data 
+all.mutations <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_MUTATION_RESULTS.csv", stringsAsFactors = F)
+
+## rename to consistent gene name
+all.mutations$BEST_EFF_GENE[all.mutations$BEST_EFF_GENE == "MLL"] <- "KMT2A"
+all.mutations$BEST_EFF_GENE[all.mutations$BEST_EFF_GENE == "MLL2"] <- "KMT2D"
+
+## standardizes mutation classification
+all.mutations$variant_classification <- "other"
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Missense", "Missense_Mutation", "protein_altering", "coding_sequence")] <- "missense"
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% 
+                                         c("In_Frame_Ins",  "Inframe_Del",  "Inframe_Ins", "In_Frame_Del")] <- "in_frame_indel"
+
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Frame_Shift_Del","Frame_Shift_Ins","Frameshift")] <- "frameshift_indel"
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Splice_Acceptor", "Splice_Donor", "Splice_Region", "Splice_Site")] <- "splice_site"
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Stop_Lost", "Nonstop_Mutation", "incomplete_terminal_codon")]<- "stop_codon"
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Nonsense", "Nonsense_Mutation")] <- "nonsense"
+all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Translation_Start_Site", "Initiator_Codon")] <- "TSS"
+
+
+all.mutations.tier1.3 <- all.mutations[all.mutations$TIER_ID < 4, ]
+all.mutations.tier1.4 <- all.mutations[all.mutations$TIER_ID < 5, ]
+all.cnvs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_CNV_RESULTS.csv", stringsAsFactors = F)
+all.svs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_SV_RESULTS.csv", stringsAsFactors = F)
+
+
+## read in coverage information
+gene.list <- read.delim("../OncDRS data/Gene_lists.txt", stringsAsFactors = F)
+not.covered <- list(gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v1[-1])], gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v2[-1])],
+                    gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v3[-1])])
+not.covered.map <- gene.list$Gene[-1][!as.numeric(gene.list$OncoMap[-1])]
+
