@@ -82,9 +82,72 @@ master.sheet.ordered$REPORT_COMMENT<- sapply(1:nrow(master.sheet.ordered), funct
 write.table(master.sheet.ordered, "../Analysis/master.sheet.tsv", row.names = F, sep = "\t")
 
 
+## second round cleaning, after manual annotation of pathology subtypes
+
+master.sheet <- read.delim("../OncDRS data/Master_Sheet_R_Upload.txt", stringsAsFactors = F)
+master.sheet <- master.sheet[, !(colnames(master.sheet) == "Cancer_grade")]
+
+## add back block number
+opanel.sheet <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_SPECIMEN.csv", stringsAsFactors = F)
+opanel.sheet <- opanel.sheet[, 4:5]
+master.sheet <- merge(master.sheet, opanel.sheet, "SAMPLE_ACCESSION_NBR", all.x = T)
 
 
+## read in annotated version of master sheet to add meningioma/pituitary/glioma pathology information
+pit.data <- read.delim("../OncDRS data/Pituitary_R_Upload.txt", stringsAsFactors = F, skip = 1)
+pit.data <- pit.data[, c("Surg.Path..", "Recurrent.", "Histochemical.Expression")]
+colnames(pit.data) <- c("BLOCK_ACCESSION_NBR", "Primary", "Cancer_Type_Specific")
+pit.data$Primary <- !pit.data$Primary
+master.sheet <- merge(master.sheet, pit.data, "BLOCK_ACCESSION_NBR", all.x = TRUE)
 
+## because merge doesn't work when rows have different values, have to combine values for common columns, even if NA's as placeholders
+master.sheet$Primary.x[!is.na(master.sheet$Primary.y)] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y)]
+master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y)] <- master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y)]
+colnames(master.sheet)[c(10,11)] <- c("Cancer_Type_Specific", "Primary")
+master.sheet <- master.sheet[, -c(20, 21)]
+
+## same thing for meningioma data
+men.data <- read.delim("../OncDRS data/Meningioma_R_Upload.txt", stringsAsFactors = F)
+men.data <- men.data[, c("surg_path", "primary", "tumor_subtype", "grade")]
+colnames(men.data) <- c("BLOCK_ACCESSION_NBR", "Primary", "Cancer_Type_Specific", "Grade")
+men.data$Primary <- men.data$Primary == TRUE
+men.data$BLOCK_ACCESSION_NBR <- sapply(men.data$BLOCK_ACCESSION_NBR, function(x){gsub("(BS)([0-9])", "\\1-\\2", x)}, USE.NAMES = FALSE)
+master.sheet <- merge(master.sheet, men.data, "BLOCK_ACCESSION_NBR", all.x = TRUE)
+
+master.sheet$Primary.x[!is.na(master.sheet$Primary.y)] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y)]
+master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y)] <- master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y)]
+colnames(master.sheet)[c(10,11)] <- c("Cancer_Type_Specific", "Primary")
+master.sheet <- master.sheet[, -c(20, 21)]
+
+
+## same thing for glioma data
+lgg.data <- read.delim("../OncDRS data/LGG_R_Upload.txt", stringsAsFactors = F)
+lgg.data <- lgg.data[, c("Surg.Path", "Diagnosis..........Path.Report.", "Primary.vs.Recurrent")]
+lgg.data$Grade <- as.integer(sapply(lgg.data$Diagnosis..........Path.Report., function(x){gsub("[A-z]", "", x)}, USE.NAMES = FALSE))
+lgg.data$Cancer_Type_Specific <- sapply(lgg.data$Diagnosis..........Path.Report., function(x){gsub("[0-9]", "", x)}, USE.NAMES = FALSE)
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "O"] <- "Oligo"
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "A"] <- "Astro"
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "DA"] <- "DiffuseAstro"
+lgg.data$Primary <- lgg.data$Primary.vs.Recurrent == "Primary"
+lgg.data <- lgg.data[, -c(2:3)]
+colnames(lgg.data)[1] <- "BLOCK_ACCESSION_NBR"
+master.sheet <- merge(master.sheet, lgg.data, "BLOCK_ACCESSION_NBR", all.x = TRUE)
+
+master.sheet$Primary.x[!is.na(master.sheet$Primary.y)] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y)]
+master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y)] <- master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y)]
+master.sheet$Grade.x[!is.na(master.sheet$Grade.y)] <- master.sheet$Grade.y[!is.na(master.sheet$Grade.y)]
+colnames(master.sheet)[c(10,11,20)] <- c("Cancer_Type_Specific", "Primary", "Grade")
+master.sheet <- master.sheet[, -c(21, 22, 23)]
+master.sheet$Grade[is.na(master.sheet$Grade)] <- ""
+master.sheet$Cancer_Type_Specific[is.na(master.sheet$Cancer_Type_Specific)] <- ""
+master.sheet$Primary[is.na(master.sheet$Primary)] <- ""
+write.table(master.sheet, "../OncDRS data/master.sheet.tsv", row.names = F, sep = "\t")
+
+## remove trailing block number
+master.sheet$BLOCK_ACCESSION_NBR <- sapply(master.sheet$BLOCK_ACCESSION_NBR, function(x){gsub("-[A-Z][0-9]$", "", x)}, USE.NAMES = FALSE)
+master.sheet$BLOCK_ACCESSION_NBR <- sapply(master.sheet$BLOCK_ACCESSION_NBR, function(x){gsub(" [A-Z][0-9]$", "", x)}, USE.NAMES = FALSE)
+
+merged <- merge(master.sheet, pit.data, "BLOCK_ACCESSION_NBR", all.x = T)
 ## read in raw data 
 all.mutations <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_MUTATION_RESULTS.csv", stringsAsFactors = F)
 
