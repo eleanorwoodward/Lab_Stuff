@@ -337,24 +337,31 @@ PlotComut <- function(maf, samples, input.samples = "Tumor_Sample_Barcode", inpu
     all.genes <- unique(maf[, input.genes])
     df <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
     colnames(df) <- c("samples", "genes")
-    df$mutations <- NA
+    #df$mutations <- NA
     
     # Loops through each row in df, determining if given gene is mutated in given sample in maf
     # If so, determines what type of mutation, then writes information to df
+    # print("Initializing maf")
+    # for (i in 1:nrow(df)){
+    #     tmp.sample <- df$samples[i]
+    #     tmp.gene <- df$genes[i]
+    #     matches <- maf[maf[, input.samples] == tmp.sample & maf[, input.genes] == tmp.gene, ]
+    #     if (nrow(matches) == 0){
+    #         ## do nothing
+    #     }else{
+    #         df$mutations[i] <- matches[, input.mutations][1]
+    #     }
+    # }
+    
+    
+    ## optimized code: use merge + melt
     print("Initializing maf")
-    for (i in 1:nrow(df)){
-        tmp.sample <- df$samples[i]
-        tmp.gene <- df$genes[i]
-        matches <- maf[maf[, input.samples] == tmp.sample & maf[, input.genes] == tmp.gene, ]
-        if (nrow(matches) == 0){
-            ## do nothing
-        }else{
-            df$mutations[i] <- matches[, input.mutations][1]
-        }
-    }
-    df.old <- df
-    #samp.old <- unique(df$samples)
+    maf.long <- melt(maf[, c(input.samples, input.genes, input.mutations)], id = c(input.samples, input.genes))
+    maf.long <- maf.long[-3]
+    colnames(maf.long) <- c("samples", "genes", "mutations")
+    df <- merge(df, maf.long, c("samples", "genes"), all.x = TRUE)
     ## annotate coverage information
+    print("annotating coverage")
     for (i in 1:length(unique(df$samples))){
         tmp.sample <- unique(df$samples)[i]
         tmp.sample.ver <- master.sheet[master.sheet$SAMPLE_ACCESSION_NBR == tmp.sample, "PANEL_VERSION"]
@@ -392,6 +399,7 @@ PlotComut <- function(maf, samples, input.samples = "Tumor_Sample_Barcode", inpu
         ord <- ord[1:idx]
     }else{
         ## keep given number of top hits
+        idx <- min(gene.cutoff, length(ord))
         ord <- ord[1:idx]
     }
     
@@ -420,6 +428,8 @@ PlotComut <- function(maf, samples, input.samples = "Tumor_Sample_Barcode", inpu
         ## change NA's and uncovered to filler which will always order last
         df.wide[, i][is.na(df.wide[, i])] <- "z"
         df.wide[, i][df.wide[, i] == "nc"] <- "z"
+        ## change mutations to "mutation" so type doesn't factor into cascading order
+        df.wide[, i][df.wide[, i] != "z"] <- "mutation"
     }
     
     ## sorts by single gene if only one significantly mutated, otherwise all columns
