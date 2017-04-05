@@ -12,6 +12,7 @@ master.sheet <- read.delim("Master_Sheet_R_Upload.txt", stringsAsFactors = F)
 table(master.sheet$Cancer_Type_Broad)
 
 ## generate disease lists
+master.sheet <- master.sheet[master.sheet$PANEL_VERSION > 0, ]
 chondrosarcoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Chondrosarcoma", ]$SAMPLE_ACCESSION_NBR)
 craniopharyngioma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Craniopharyngioma", ]$SAMPLE_ACCESSION_NBR)    
 ependymoma <- unique(master.sheet[master.sheet$Cancer_Type_Broad == "Ependymoma", ]$SAMPLE_ACCESSION_NBR)
@@ -33,7 +34,7 @@ pathologies <- list(chondrosarcoma, craniopharyngioma, ependymoma, glioma, lymph
 names(pathologies) <- c("chondrosarcoma", "craniopharyngioma", "ependymoma", "glioma", "lymphoma", "medulloblastoma", "meningioma", "metastasis", "neuroblastoma", 
                             "pineal_parenchymal_tumor", "pituitary_adenoma", "pituitary_other","schwannoma")
 
-
+View(all.mutations.tier1.4[all.mutations.tier1.4$SAMPLE_ACCESSION_NBR %in% pathologies[["schwannoma"]], ])
 
 ########### exploratory analysis plots
 
@@ -48,32 +49,65 @@ labs(title = "All Tier 1 to 3 mutations") + theme(axis.text.x=element_text(angle
 dev.off()
 
 ## generates graph for specific subtypes of most frequently mutated genes
-file.path.base <- "_all_tier_1_to_4_mutations.pdf"
-title.base.count <- "All Tier 1 to 4 mutations in "
-title.base.percent <- 
+file.path.base <- " 1-3 mutation"
+title.base <- "All Tier 1 to 3 mutations in"
 
 for (i in 1:length(pathologies)){
-    file.name <- paste(names(pathologies)[i], file.path.base, sep = "")
-    pdf(file.name, width = 14)
-    title <- paste(title.base, names(pathologies)[i])
-    temp <- all.mutations.tier1.4[all.mutations.tier1.4$SAMPLE_ACCESSION_NBR %in% pathologies[[i]], ]
+    ## percent barplot
+    file.name <- paste(names(pathologies)[i], file.path.base, " percent.pdf", sep = "")
+    title <- paste(title.base, names(pathologies)[i], " percent")
+    temp <- subset(all.mutations.tier1.3, SAMPLE_ACCESSION_NBR %in% pathologies[[i]])
     temp.deduped <- PerSampleMaf(temp, "BEST_EFF_GENE", "SAMPLE_ACCESSION_NBR")
+    pdf(file.name, width = 14)
+    PlotHistogramCoverage(maf = subset(temp.deduped, BEST_EFF_GENE %in% names(sort(table(temp.deduped$BEST_EFF_GENE), decreasing = T))[1:40]),
+                                       gene.column = "BEST_EFF_GENE", samples = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], 
+                                        select = SAMPLE_ACCESSION_NBR)$SAMPLE_ACCESSION_NBR, title)
+    dev.off()
+    
+    ## count barplot
+    file.name <- paste(names(pathologies)[i], file.path.base, " count.pdf", sep = "")
+    title <- paste(title.base, names(pathologies)[i], " count")
+    pdf(file.name, width = 14)
     temp.deduped$BEST_EFF_GENE <- factor(temp.deduped$BEST_EFF_GENE, levels = names(sort(table(temp.deduped$BEST_EFF_GENE), decreasing = T)))
-    print(ggplot(data = subset(temp.deduped, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1:80]), aes(x = BEST_EFF_GENE)) + geom_bar() + labs(title = title) + 
+    print(ggplot(data = subset(temp.deduped, BEST_EFF_GENE %in% levels(temp.deduped$BEST_EFF_GENE)[1:40]), aes(x = BEST_EFF_GENE)) + geom_bar() + labs(title = title) + 
     theme(axis.text.x=element_text(angle=90, hjust=1)) + rameen_theme)
     dev.off()
 }
 
-## generates comuts
 
-cutoffs <- c(1, 1, 1, .1, 1, 1, .5, .5, 1, 1, 1, 1, 1)
+
+## generates comuts
+cutoffs <- c(1, 1, 1, .1, 1, 1, .5, .25, 1, 1, 1, 1, 1)
 for (i in 1:length(pathologies)){
+    ## keeps tier 4 variants if tier 1-3 variant in same gene, otherwise relegates to second maf
+    temp.snv <- subset(all.mutations.tier1.4, SAMPLE_ACCESSION_NBR %in% pathologies[[i]])
+    temper.snv <- subset(all.mutations.tier1.3, SAMPLE_ACCESSION_NBR %in% pathologies[[i]])
+    temp.snv.1 <- temp.snv[temp.snv$BEST_EFF_GENE %in% temper.snv$BEST_EFF_GENE, ]
+    temp.snv.1 <- temp.snv.1[temp.snv.1$BEST_EFF_GENE %in% names(sort(table(temp.snv.1$BEST_EFF_GENE), decreasing = T))[1:35], ]
+    temp.snv.2 <- temp.snv[!(temp.snv$BEST_EFF_GENE %in% temper.snv$BEST_EFF_GENE), ]
+    temp.snv.2 <- temp.snv.2[temp.snv.2$BEST_EFF_GENE %in% names(sort(table(temp.snv.2$BEST_EFF_GENE), decreasing = T))[1:20], ]
     
-    PlotComut(maf = subset(all.mutations.tier1.3, SAMPLE_ACCESSION_NBR %in% pathologies[[i]]), 
-              samples = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], select = SAMPLE_ACCESSION_NBR), input.samples = "SAMPLE_ACCESSION_NBR", 
-              input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification", gene.cutoff = cutoffs[i], file.path = paste(names(pathologies)[i], "1-3 comut.pdf"), 
-              unique.muts = unique(all.mutations$variant_classification), phenotypes = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], 
+    
+    temp.cnv <- subset(all.cnv.high, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], 
+                       select = c("SAMPLE_ACCESSION_NBR", "GENE", "CNV_TYPE_CD"))
+    if (nrow(temp.cnv) > 0){
+        temp.cnv <- temp.cnv[temp.cnv$GENE %in% names(sort(table(temp.cnv$GENE), decreasing = T))[1:15], ]
+    }else{
+        temp.cnv <- NA
+    }
+    PlotComut(maf1 = temp.snv.1, 
+              #maf2 = temp.snv.2,
+              maf3 = temp.cnv,
+              samples = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], select = SAMPLE_ACCESSION_NBR), 
+              input.samples = "SAMPLE_ACCESSION_NBR", 
+              input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification", gene.cutoff = 60, 
+              file.path = paste(names(pathologies)[i], "1-4 if 3 comut.pdf"),
+              #file.path = paste("glioma 1-4 if 3 IDH1 sort comut.pdf"),
+              #return.matrix = TRUE,
+              unique.muts = unique(all.mutations$variant_classification), 
+              phenotypes = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], 
               select = c("SAMPLE_ACCESSION_NBR","PANEL_VERSION", "CNV_ONC")), title = paste(names(pathologies)[i], " comut"))
+
 }
 
 
@@ -205,9 +239,16 @@ print(ggplot(data = subset(temp, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1
     rameen_theme)
 
 
-## plot percent of samples with a given alteration, controlling for # in which gene is covered
+all.samples <- paste("sample", 1:10)
+all.genes <- unique(all.mutations$BEST_EFF_GENE)[1:10]
+df <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
+colnames(df) <- c("samples", "genes")
+df$mutations <- NA
 
-
-
-
+wide.df <- data.frame(c(all.samples[c(1,5,2,7,4)]), all.genes[c(1,5,1,7,5)], c("Missense", "Missense", "Nonsense", "Nonsense", "nc"))
+colnames(wide.df) <- c("samples", "genes", "mutations")
+long.df <- melt(wide.df, id = c("samples", "genes"))
+long.df <- long.df[, -3]
+colnames(long.df)[3] <- "mutations"
+x <- merge(df, long.df, c("samples", "genes"), all.x = T)
 
