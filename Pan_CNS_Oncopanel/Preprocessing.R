@@ -171,7 +171,6 @@ all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c
 all.mutations.tier1.3 <- all.mutations[all.mutations$TIER_ID < 4, ]
 all.mutations.tier1.4 <- all.mutations[all.mutations$TIER_ID < 5, ]
 all.cnvs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_CNV_RESULTS.csv", stringsAsFactors = F)
-all.svs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_SV_RESULTS.csv", stringsAsFactors = F)
 
 
 ## read in coverage information
@@ -180,3 +179,70 @@ not.covered <- list(gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v1[-1])],
                     gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v3[-1])])
 not.covered.map <- gene.list$Gene[-1][!as.numeric(gene.list$OncoMap[-1])]
 
+
+
+## preprocessing for rearrangements
+all.svs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_SV_RESULTS.csv", stringsAsFactors = F)
+
+all.svs$empty <- FALSE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[3], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[18], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[44], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[71], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[112], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[126], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[121], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[133], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[206], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[238], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[277], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[360], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[375], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[401], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[402], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[430], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[447], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[456], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[595], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[606], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[638], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[697], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[767], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[820], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[916], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[956], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1020], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1078], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1097], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1119], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1153], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1202], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1205], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1248], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1249], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1250], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1257], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1278], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1296], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1298], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1306], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1314], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1316], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1317], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1321], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1332], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1335], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1336], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1344], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1377], ]$empty <- TRUE
+all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1388], ]$empty <- TRUE
+
+## write to excel sheet for manual gene name integration
+
+write.csv(all.svs[, c("PATIENT_ID", "SAMPLE_ACCESSION_NBR", "BLOCK_ACCESSION_NBR", "STRUCTURAL_VARIANT_TEXT", "empty")], 
+          "../OncDRS data/rearrangements_for_manual_review.csv")
+
+all.svs <- read.delim("C:/Users/Noah/Syncplicity Folders/Pan-CNS Oncopanel/OncDRS data/rearrangements_for_manual_review_R_upload.txt", stringsAsFactors = F)
+all.svs <- all.svs[, -c(7:8, 10:11)]
+all.svs$rearrangement <- FALSE
+all.svs$rearrangement[all.svs$Gene1 != ""] <- TRUE
