@@ -78,7 +78,7 @@ for (i in 1:length(pathologies)){
 
 ## generates comuts
 cutoffs <- c(1, 1, 1, .1, 1, 1, .5, .25, 1, 1, 1, 1, 1)
-for (i in 1:length(pathologies)){
+for (i in 9:length(pathologies)){
     ## keeps tier 4 variants if tier 1-3 variant in same gene, otherwise relegates to second maf
     temp.snv <- subset(all.mutations.tier1.4, SAMPLE_ACCESSION_NBR %in% pathologies[[i]])
     temper.snv <- subset(all.mutations.tier1.3, SAMPLE_ACCESSION_NBR %in% pathologies[[i]])
@@ -96,14 +96,15 @@ for (i in 1:length(pathologies)){
         temp.cnv <- NA
     }
     PlotComut(maf1 = temp.snv.1, 
-              #maf2 = temp.snv.2,
+              maf2 = temp.snv.2,
               maf3 = temp.cnv,
               samples = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], select = SAMPLE_ACCESSION_NBR), 
               input.samples = "SAMPLE_ACCESSION_NBR", 
               input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification", gene.cutoff = 60, 
-              file.path = paste(names(pathologies)[i], "1-4 if 3 comut.pdf"),
+              file.path = paste(names(pathologies)[i], "1-4 4 split comut.pdf"),
               #file.path = paste("glioma 1-4 if 3 IDH1 sort comut.pdf"),
               #return.matrix = TRUE,
+              #y.axis.font = 15, dimensions = c(20,20), 
               unique.muts = unique(all.mutations$variant_classification), 
               phenotypes = subset(master.sheet, SAMPLE_ACCESSION_NBR %in% pathologies[[i]], 
               select = c("SAMPLE_ACCESSION_NBR","PANEL_VERSION", "CNV_ONC")), title = paste(names(pathologies)[i], " comut"))
@@ -115,7 +116,7 @@ for (i in 1:length(pathologies)){
 ## recurrent hotspots across the cohort
 ## Hotspot finder
 
-all.mutations.hotspot <- all.mutations
+all.mutations.hotspot <- all.mutations.tier1.4
 
 #excludes major categories
 all.mutations.hotspot <- all.mutations[!(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["glioma"]],pathologies[["meningioma"]], pathologies[["metastasis"]])), ] 
@@ -124,7 +125,6 @@ all.mutations.hotspot <- all.mutations[!(all.mutations$SAMPLE_ACCESSION_NBR %in%
 all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["glioma"]])), ]
 all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["meningioma"]])), ]
 all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["metastasis"]])), ]
-all.mutations.hotspot <- all.mutations[(all.mutations$SAMPLE_ACCESSION_NBR %in% c(pathologies[["glioma"]])), ]
 
 gene.list <- sort(unique(all.mutations.hotspot$BEST_EFF_GENE))
 mtrx <- matrix(0, 41, length(gene.list))
@@ -177,7 +177,7 @@ pdf("hotspots_in_glioma.pdf", width = 25)
 pdf("hotspots_in_meningioma.pdf", width = 25)
 pdf("hotspots_in_metastasis.pdf", width = 25)
 
-barplot(as.matrix(df[1:40, c(1:100)]), main = "Mutations grouped by base start position in all tumors, min 10 total", las = 2, col = c("gray8", "gray47", "gray70", "gray100"))
+barplot(as.matrix(df[1:40, c(1:100)]), main = "Mutations grouped by base start position in metastatic tumors", las = 2, col = c("gray8", "gray47", "gray70", "gray100"))
 dev.off()
 
 
@@ -225,30 +225,85 @@ final.list <- names(df)[1:(cutoff1 - 1)]
 
 
 
-## add preprocessing to consolidate mutation class
-## turn comut code into function
-
-
-
-
-
 ## plot mutations per gene with color based on underlying pathology
 temp <- merge(all.mutations.tier1.4, master.sheet[, c("SAMPLE_ACCESSION_NBR", "Cancer_Type_Broad")], "SAMPLE_ACCESSION_NBR")
 temp$BEST_EFF_GENE <- factor(temp$BEST_EFF_GENE, levels = names(sort(table(temp$BEST_EFF_GENE), decreasing = T)))
 print(ggplot(data = subset(temp, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1:80]), aes(x = BEST_EFF_GENE, fill = Cancer_Type_Broad)) + geom_bar() + labs(title = "title") + 
     rameen_theme)
 
+## chi-squared test to determine which genes are differentially mutated
 
-all.samples <- paste("sample", 1:10)
-all.genes <- unique(all.mutations$BEST_EFF_GENE)[1:10]
+top.genes <- names(sort(table(all.mutations.tier1.4$BEST_EFF_GENE), decreasing = T))
+
+
+
+## construct master comut
+all.samples <- unique(master.sheet[master.sheet$PANEL_VERSION > 0, ]$SAMPLE_ACCESSION_NBR)
+all.genes <- unique(all.mutations.tier1.4$BEST_EFF_GENE)
 df <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
 colnames(df) <- c("samples", "genes")
-df$mutations <- NA
 
-wide.df <- data.frame(c(all.samples[c(1,5,2,7,4)]), all.genes[c(1,5,1,7,5)], c("Missense", "Missense", "Nonsense", "Nonsense", "nc"))
-colnames(wide.df) <- c("samples", "genes", "mutations")
-long.df <- melt(wide.df, id = c("samples", "genes"))
-long.df <- long.df[, -3]
-colnames(long.df)[3] <- "mutations"
-x <- merge(df, long.df, c("samples", "genes"), all.x = T)
+master.maf <- melt(all.mutations.tier1.4[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")], id = c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE"))
+master.maf <- master.maf[-3]
+colnames(master.maf) <- c("samples", "genes", "mutations")
+df <- merge(df, master.maf, c("samples", "genes"), all.x = TRUE)
+df[!is.na(df$mutations), ]$mutations <- 1
+df[is.na(df$mutations), ]$mutations <- 0
 
+df.pheno <- melt(master.sheet[, c("SAMPLE_ACCESSION_NBR", "Cancer_Type_Broad")], id = "SAMPLE_ACCESSION_NBR")
+colnames(df.pheno) <- c("samples", "genes", "mutations")
+df <- rbind(df, df.pheno)
+
+df.wide <- reshape(df, v.names = "mutations", idvar = "samples", timevar = "genes", direction = "wide")
+p.values <- c()
+genes <- c()
+
+
+df.wide$simple.pathology <- "other"
+df.wide$simple.pathology[df.wide$mutations.Cancer_Type_Broad == "Glioma"] <- "Glioma"
+df.wide$simple.pathology[df.wide$mutations.Cancer_Type_Broad == "Meningioma"] <- "Meningioma"
+df.wide$simple.pathology[df.wide$mutations.Cancer_Type_Broad == "Metastasis"] <- "Metastasis"
+df.wide$simple.pathology[df.wide$mutations.Cancer_Type_Broad == "Pituitary_adenoma"] <- "Pituitary_adenoma"
+
+for (i in 1:length(top.genes)){
+    name <- paste("mutations.", top.genes[i], sep = "")
+    x <- chisq.test(table(df.wide[, name], df.wide$simple.pathology))
+    p.values <- c(p.values, x$p.value)
+    genes <- c(genes, top.genes[i])
+    
+}
+cbind(p.values, genes)
+
+pairs <- data.frame(p.values, genes)
+pairs$p.values <- p.adjust(pairs$p.values, "fdr")
+
+pairs$glioma <- 0
+pairs$meningioma <- 0
+pairs$metastasis <- 0
+pairs$other <- 0
+pairs$pituitary_adenoma <- 0
+
+for (i in 1:nrow(pairs)){
+    col.name <- paste("mutations.", pairs$genes[i], sep = "")
+    x <- table(df.wide[, col.name], df.wide$simple.pathology)
+    pairs[i, 3:7] <- as.numeric(x[2, 1:5] / (x[2, 1:5] + x[1, 1:5]))
+}
+pairs <- pairs[order(pairs$p.values), ]
+
+write.csv(pairs, "differentially_mutated_genes.csv", row.names = F)
+
+
+## rough estimate for # of mutations per gene greater than expected
+med <- median(sort(table(all.mutations.tier1.4$BEST_EFF_GENE)))
+
+pbinom(50, 100, .7)
+
+genes <- c()
+p.values  <- c()
+for (i in 2:ncol(df.wide)){
+    x <- pbinom(sum(as.numeric(df.wide[, i])), nrow(df.wide), med/nrow(df.wide), lower.tail = FALSE)
+    p.values <- c(p.values, x)
+    genes <- c(genes, colnames(df.wide)[i])
+}
+y <- data.frame(p.values, genes)
+y$p.values <- p.adjust(y$p.values, "fdr")
