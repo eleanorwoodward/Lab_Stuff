@@ -228,9 +228,10 @@ final.list <- names(df)[1:(cutoff1 - 1)]
 ## plot mutations per gene with color based on underlying pathology
 temp <- merge(all.mutations.tier1.4, master.sheet[, c("SAMPLE_ACCESSION_NBR", "Cancer_Type_Broad")], "SAMPLE_ACCESSION_NBR")
 temp$BEST_EFF_GENE <- factor(temp$BEST_EFF_GENE, levels = names(sort(table(temp$BEST_EFF_GENE), decreasing = T)))
+pdf("../Analysis/barplot mutations by tumor type.pdf", width = 15)
 print(ggplot(data = subset(temp, BEST_EFF_GENE %in% levels(temp$BEST_EFF_GENE)[1:80]), aes(x = BEST_EFF_GENE, fill = Cancer_Type_Broad)) + geom_bar() + labs(title = "title") + 
     rameen_theme)
-
+dev.off()
 ## chi-squared test to determine which genes are differentially mutated
 
 top.genes <- names(sort(table(all.mutations.tier1.4$BEST_EFF_GENE), decreasing = T))
@@ -307,3 +308,46 @@ for (i in 2:ncol(df.wide)){
 }
 y <- data.frame(p.values, genes)
 y$p.values <- p.adjust(y$p.values, "fdr")
+
+
+## plot 2D grid with size corresponding to incidence
+temp <- data.frame(c("Class1", "Class2", "Class3", "Class1", "Class2", "Class3"), 
+                   c("Gene1", "Gene1", "Gene1", "Gene2", "Gene2", "Gene2"), 
+                   c(1,2,3,4,5,6))
+colnames(temp) <- c("Class", "Gene", "Freq")
+
+ggplot(data = temp, aes(x = Class, y = Gene)) + geom_point(aes(size = Freq))
+
+## use real data
+## generate gene list of top hits
+
+temp <- merge(all.mutations.tier1.3, master.sheet[, c("SAMPLE_ACCESSION_NBR", "Cancer_Type_Broad")])
+genes <- names(sort(table(temp$BEST_EFF_GENE), decreasing = TRUE)[1:20])
+genes <- c(genes, "CTNNB1", "MYD88", "CD79B", "PIM1", "PTCH1", "KMT2D", "AKT1", "SMO", "PTPRD", "PRKDC", "DICER1", "GNAS")
+temp <- temp[temp$BEST_EFF_GENE %in% genes, ]
+temp <- temp[temp$Cancer_Type_Broad != "", ]
+temp2 <- table(temp$Cancer_Type_Broad, temp$BEST_EFF_GENE)
+
+## option to convert table to percentage
+vals <- as.numeric(table(master.sheet[!(master.sheet$Cancer_Type_Broad %in% c("", "Schwannoma check", "Pituitary_other")), ]$Cancer_Type_Broad))
+temp2 <- apply(temp2, 2, function(x){x / vals})
+
+melted <- melt(temp2)
+colnames(melted) <- c("Tumor", "Gene", "Percent")
+
+## re order levels based on number of genes mutated per tumor type
+orders <- sort(apply(temp2,1, function(x){sum(x!=0)}), decreasing = T)
+melted$Tumor <- factor(melted$Tumor, levels = names(orders))
+orders <- sort(apply(temp2, 2, function(x){sum(x!=0)}))
+melted$Gene <- factor(melted$Gene, levels = names(orders))
+melted <- melted[!(melted$Count == 0), ]
+pdf("../Analysis/2D Circle Plot Mutations.pdf")
+ggplot(data = melted, aes(x = Tumor, y = Gene)) + geom_point(aes(size = Percent)) + rameen_theme
+dev.off()
+
+
+## look at permutations
+temp <- df
+temp.glioma <- df[df$samples %in% df[df$mutations == "Glioma", ]$samples,] 
+temp.glioma <- temp.glioma[temp.glioma$mutations != 0, ]
+
