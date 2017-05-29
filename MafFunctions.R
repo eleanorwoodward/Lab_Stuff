@@ -17,6 +17,9 @@ source("http://www.bioconductor.org/biocLite.R")
 # install.packages("kohonen")
 # install.packages("nycflights13")
 #install.packages("randomcoloR")
+#install.packages("NMF")
+#install.packages("gridExtra")
+install.packages("cowplot")
 
 ## Nice packages
 library(grDevices)
@@ -31,6 +34,8 @@ library(Biobase)
 library(nycflights13)
 library(reshape2)
 library(randomcoloR)
+library(NMF)
+library(gridExtra)
 
 ## ggplot settings
 rameen_theme <- theme(panel.background = element_blank(), axis.ticks.y = element_blank(), axis.ticks.x = element_blank(), axis.title.x = element_blank(), 
@@ -300,16 +305,18 @@ is.wholenumber <- function(x, tol = .Machine$double.eps^0.5){
     abs(x - round(x)) < tol
 }
 
-PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, input.genes = "Hugo_Symbol", input.mutations = "Variant_classification", 
-                      gene.cutoff = 1, file.path = NULL, unique.muts = NULL, phenotypes = NULL, manual.order = NULL, return.matrix = FALSE, title = "Comut Plot"){
+PlotComut <- function(mut.maf1 = NULL, mut.maf2 = NULL, focal.cnv.maf = NULL, broad.cnv.maf = NULL, samples, input.samples, input.genes = "Hugo_Symbol", input.mutations = "Variant_classification", 
+                      gene.cutoff = 1, file.path = NULL, unique.muts = NULL, col.vector = NULL, phenotypes = NULL, manual.order = NULL, fixed.order = NULL, return.matrix = FALSE, 
+                      return.plot = FALSE, y.axis.font.size = 8, legend.font.size = 8, dimensions = c(7, 7), title = "Comut Plot"){
 ## Takes in a maf file, and generates a comut plot of common mutations in each of the samples
 ## adapted from code at https://benchtobioinformatics.wordpress.com/2015/05/25/how-to-make-a-co-mutation-plot/
     
 
 ## Args:
-    ## maf1: a maf file with mutation calls
-    ## maf2: an optional maf file with mutation calls, all of which will sorted below the first
-    ## maf3: an optional maf of CNV calls with sample identifier as first column, gene as second, and type of CNV as third
+    ## mut.maf1: a maf file with mutation calls
+    ## mut.maf2: an optional maf file with mutation calls, all of which will sorted below the first and labeled tier 4
+    ## focal.cnv.maf: an optional maf (long format) of CNV calls with sample identifier as first column, gene as second, and type of CNV as third
+    ## broad.cnv.maf: an optional maf
     ## samples: a vector with all individuals to be plotted (don't take from MAF, could be absent due to no mutations)
     ## input.samples: a column wthin the maf which specifies samples
     ## input.genes: a column within the maf which specifies genes
@@ -317,29 +324,35 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
     ## gene.cutoff: a threshold for deciding how many genes to include in comut. if beteen 0 and 1, treated as percentage of total. otherwise, number of genes
     ## file.path: optional path specifying where the comut will be saved
     ## unique.muts: an optional vector with all the unique mutation classes present in dataset. Useful for consistent colors across multiple comuts
+    ## col.vector
     ## phenotypes: an optional dataframe with samples as the first column, and subsequent columns taken as additional information to plot in given order
-    ## manual.order: a vector with a list which will overide the default ordering of rows by frequency for alternate sorting 
+    ## manual.order: a vector of variables names which will overide the default ordering of rows by frequency for alternate sorting
+    ## fixed.order: a vector of sample identifiers which determines ordering of all samples
     ## return.matrix: if TRUE, returns the wide dataframe used to sort the comut to enable statistical testing
     ## title: a title for the plot
     
     
     ## Error Checking
-    if (is.null(maf1[[input.samples]]) |is.null(maf1[[input.genes]]) | is.null(maf1[[input.mutations]])){
-        stop("Invalid column name for maf1")
-    }
-    if(!missing(maf2)){
-        if (is.null(maf2[[input.samples]]) |is.null(maf2[[input.genes]]) | is.null(maf2[[input.mutations]])){
-            stop("Invalid column name for maf2")
-        }   
+    if(!missing(mut.maf1)){
+        if (is.null(mut.maf1[[input.samples]]) |is.null(mut.maf1[[input.genes]]) | is.null(mut.maf1[[input.mutations]])){
+            stop("Invalid column name for mut.maf")
+        }
         
-        if(nrow(maf2) == 0){
-            stop("Invalid maf2, doesn't contain any entries")
+        if (nrow(mut.maf1) == 0){
+            stop("Invalid mut.maf, doesn't contain any entries")
         }
     }
     
-    if (nrow(maf1) == 0){
-        stop("Invalid maf1, doesn't contain any entries")
+    if(!missing(mut.maf2)){
+        if (is.null(mut.maf2[[input.samples]]) |is.null(mut.maf2[[input.genes]]) | is.null(mut.maf2[[input.mutations]])){
+            stop("Invalid column name for mut.maf2")
+        }   
+        
+        if(nrow(mut.maf2) == 0){
+            stop("Invalid mut.maf2, doesn't contain any entries")
+        }
     }
+    
     
     if (gene.cutoff < 0){
         stop("Invalid value for gene cutoff: must be an integer greater than 1 or a real number between 0 and 1")
@@ -356,76 +369,69 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
         samples <- samples[, 1]
     }
     
-    ## initailize long dataframe with all possible gene-sample combinations
-    all.samples <- unique(samples)
-    all.genes <- unique(maf1[, input.genes])
-    df <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
-    colnames(df) <- c("samples", "genes")
-    #df$mutations <- NA
-    
-    # Loops through each row in df, determining if given gene is mutated in given sample in maf
-    # If so, determines what type of mutation, then writes information to df
-    # print("Initializing maf")
-    # for (i in 1:nrow(df)){
-    #     tmp.sample <- df$samples[i]
-    #     tmp.gene <- df$genes[i]
-    #     matches <- maf[maf[, input.samples] == tmp.sample & maf[, input.genes] == tmp.gene, ]
-    #     if (nrow(matches) == 0){
-    #         ## do nothing
-    #     }else{
-    #         df$mutations[i] <- matches[, input.mutations][1]
-    #     }
-    # }
-    
-    
-    ## optimized code: use merge + melt
-    print("Initializing maf1")
-    maf1.long <- melt(maf1[, c(input.samples, input.genes, input.mutations)], id = c(input.samples, input.genes))
-    maf1.long <- maf1.long[-3]
-    colnames(maf1.long) <- c("samples", "genes", "mutations")
-    df <- merge(df, maf1.long, c("samples", "genes"), all.x = TRUE)
-    ## annotate coverage information
-    print("annotating coverage")
-    for (i in 1:length(unique(df$samples))){
-        tmp.sample <- unique(df$samples)[i]
-        tmp.sample.ver <- master.sheet[master.sheet$SAMPLE_ACCESSION_NBR == tmp.sample, "PANEL_VERSION"]
-        
-        ##oncomap coverage stored separately till we figure out how to display
-        ## checks to see how many genes for each sample were not covered in that assay, labels them as such
-        if (!tmp.sample.ver){
-            ghosts <- df[df$samples == tmp.sample & df$genes %in% not.covered.map, ]
-            if (nrow(ghosts) > 0){
-                df[df$samples == tmp.sample & df$genes %in% not.covered.map, ]$mutations <- "nc"
-            }else{
-                ## do nothing
-            }
-        }else{
-            ghosts <- df[df$samples == tmp.sample & df$genes %in% not.covered[[tmp.sample.ver]], ]
-            if (nrow(ghosts) > 0){
-                df[df$samples == tmp.sample & df$genes %in% not.covered[[tmp.sample.ver]], ]$mutations <- "nc"
-            }else{
-                ## do nothing
-            }
+    if (!missing(fixed.order)){
+        if (sum(!(fixed.order %in% samples) != 0)){
+            stop("Some samples in fixed ordering variable aren't present in samples list")
         }
     }
     
-    ## orders rows based on gene most frequently altered genes, removing NAs and uncovered genes
-    df_sub <- subset(df, !is.na(df$mutations))
-    df_sub <- subset(df, df$mutations != "nc")
-    ord <- names(sort(table(df_sub$genes), decreasing = T))
-    
+    ## initailize long dataframe with all possible gene-sample combinations
+    if(!missing(mut.maf1)){
+        all.samples <- unique(samples)
+        all.genes <- unique(mut.maf1[, input.genes])
+        df <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
+        colnames(df) <- c("samples", "genes")
+        
+        ## optimized code: use merge + melt to generate df with all called mutations
+        print("Initializing mut.maf1")
+        mut.maf1.long <- melt(mut.maf1[, c(input.samples, input.genes, input.mutations)], id = c(input.samples, input.genes))
+        mut.maf1.long <- mut.maf1.long[-3]
+        colnames(mut.maf1.long) <- c("samples", "genes", "mutations")
+        df <- merge(df, mut.maf1.long, c("samples", "genes"), all.x = TRUE)
+        ## annotate coverage information
+        print("annotating coverage")
+        for (i in 1:length(unique(df$samples))){
+            tmp.sample <- unique(df$samples)[i]
+            tmp.sample.ver <- master.sheet[master.sheet$SAMPLE_ACCESSION_NBR == tmp.sample, "PANEL_VERSION"]
+            
+            ##oncomap coverage stored separately till we figure out how to display
+            ## checks to see how many genes for each sample were not covered in that assay, labels them as such
+            if (!tmp.sample.ver){
+                ghosts <- df[df$samples == tmp.sample & df$genes %in% not.covered.map, ]
+                if (nrow(ghosts) > 0){
+                    df[df$samples == tmp.sample & df$genes %in% not.covered.map, ]$mutations <- "nc"
+                }else{
+                    ## do nothing
+                }
+            }else{
+                ghosts <- df[df$samples == tmp.sample & df$genes %in% not.covered[[tmp.sample.ver]], ]
+                if (nrow(ghosts) > 0){
+                    df[df$samples == tmp.sample & df$genes %in% not.covered[[tmp.sample.ver]], ]$mutations <- "nc"
+                }else{
+                    ## do nothing
+                }
+            }
+        }
+        
+        ## orders rows based on gene most frequently altered genes, removing NAs and uncovered genes
+        df_sub <- subset(df, !is.na(df$mutations))
+        df_sub <- subset(df, df$mutations != "nc")
+        ord <- names(sort(table(df_sub$genes), decreasing = T))
+        df.combined <- df
+    }
     ## checks if second maf of mutations supplied. If so, duplicate above code to produce second df
-    if(!missing(maf2)){
+    if(!missing(mut.maf2)){
         ## iniatialize df.2
-        all.genes <- unique(maf2[, input.genes])
+        all.samples <- unique(samples)
+        all.genes <- unique(mut.maf2[, input.genes])
         df.2 <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
         colnames(df.2) <- c("samples", "genes")
         
-        print("Initializing maf2")
-        maf2.long <- melt(maf2[, c(input.samples, input.genes, input.mutations)], id = c(input.samples, input.genes))
-        maf2.long <- maf2.long[-3]
-        colnames(maf2.long) <- c("samples", "genes", "mutations")
-        df.2 <- merge(df.2, maf2.long, c("samples", "genes"), all.x = TRUE)
+        print("Initializing mut.maf2")
+        mut.maf2.long <- melt(mut.maf2[, c(input.samples, input.genes, input.mutations)], id = c(input.samples, input.genes))
+        mut.maf2.long <- mut.maf2.long[-3]
+        colnames(mut.maf2.long) <- c("samples", "genes", "mutations")
+        df.2 <- merge(df.2, mut.maf2.long, c("samples", "genes"), all.x = TRUE)
         ## annotate coverage information
         print("annotating coverage")
         for (i in 1:length(unique(df.2$samples))){
@@ -459,36 +465,108 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
         colnames(df.3) <- c("samples", "genes", "mutations")
         
         ord.2 <- names(sort(table(df_sub$genes), decreasing = T))
-        ord <- c(ord, "Tier4", ord.2)
-        df <- rbind(df, df.3, df.2)
+        
+        ## checks if first supplied argument or not, either updates or creates tracking variables as appropriate
+        if(exists("df.combined")){
+            df.combined <- rbind(df.combined, df.3, df.2)
+            ord <- c(ord, "Tier4", ord.2)
+        }else{
+            df.combined <- df.2
+            ord <-ord.2
+        }
+        
     }
     
-    ## keep given % of genes based on cutoff
-    if (gene.cutoff == 1){
-        ## keep all genes
-    }else if (gene.cutoff < 1){
-        ## keep given percentage of top hits
-        idx <- ceiling(length(ord) * gene.cutoff)
-        ord <- ord[1:idx]
-    }else{
-        ## keep given number of top hits
-        idx <- min(gene.cutoff, length(ord))
-        ord <- ord[1:idx]
+    ## keep given % of genes based on cutoff if mutations data supplied
+    if(!missing(mut.maf1) | !missing(mut.maf2)){
+        if (gene.cutoff == 1){
+            ## keep all genes
+        }else if (gene.cutoff < 1){
+            ## keep given percentage of top hits
+            idx <- ceiling(length(ord) * gene.cutoff)
+            ord <- ord[1:idx]
+        }else{
+            ## keep given number of top hits
+            idx <- min(gene.cutoff, length(ord))
+            ord <- ord[1:idx]
+        }
     }
     
-    ## checks to see if cnv information supplied to comut
-    if (!missing(maf3)){
-        if (!is.na(maf3)){
-            ## transforms to long format so it can be added to df
-            df.cnv <- melt(maf3, id = colnames(maf3)[1:2])
+    ## checks to see if focal.cnv information supplied to comut
+    if (!missing(focal.cnv.maf)){
+        if (!is.na(focal.cnv.maf)){
+            all.samples <- unique(samples)
+            ## generates df with all possible cnvs
+            all.genes <- unique(focal.cnv.maf$GENE)
+            df.cnv <- expand.grid(all.samples, all.genes, stringsAsFactors = F)
+            colnames(df.cnv) <- c("samples", "genes")
             
+            print("Initializing df.cnv.long")
+            colnames(focal.cnv.maf) <- c("samples", "genes", "mutations")
+            df.cnv <- merge(df.cnv, focal.cnv.maf, c("samples", "genes"), all.x = TRUE)
+            
+            # annotes gene coverage
+            print("annotating coverage")
+            for (i in 1:length(unique(df.cnv$samples))){
+                tmp.sample <- unique(df.cnv$samples)[i]
+                tmp.sample.ver <- master.sheet[master.sheet$SAMPLE_ACCESSION_NBR == tmp.sample, "PANEL_VERSION"]
+
+                ## checks to see how many genes for each sample were not covered in that assay, labels them as such
+                ghosts <- df.cnv[df.cnv$samples == tmp.sample & df.cnv$genes %in% not.covered.cnv[[tmp.sample.ver]], ]
+                if (nrow(ghosts) > 0){
+                    df.cnv[df.cnv$samples == tmp.sample & df.cnv$genes %in% not.covered[[tmp.sample.ver]], ]$mutations <- "nc"
+                }else{
+                    ## do nothing
+                }
+
+            }
+            
+            df.cnv$genes <- sapply(df.cnv$genes, paste, "-cnv", sep = "", USE.NAMES = F)
+            
+            ## generate subset with mutations for accurate counting
+            df_sub <- df.cnv[!is.na(df.cnv$mutations), ]
+            ord.cnv <- names(sort(table(df_sub$genes), decreasing = T))
+            
+            if(exists("df.combined")){
+                df.combined <- rbind(df.combined, df.cnv)
+                ord <- c(ord, ord.cnv)
+            }else{
+                df.combined <- df.cnv
+                ord <- ord.cnv
+            }
+            
+        
+        }
+    }
+    
+    ## checks to see if broad.cnv information supplied to comut
+    if (!missing(broad.cnv.maf)){
+        if (!is.na(broad.cnv.maf)){
             ## renames df to enable merging with mutations df, adds to previous dataframe, 
             ## then inserts names at end of dataframe for factor ordering
-            df.cnv <- df.cnv[, -3]
-            colnames(df.cnv) <- c("samples", "genes", "mutations")
-            df.cnv$genes <- sapply(df.cnv$genes, paste, "-cnv", sep = "", USE.NAMES = F)
-            df <- rbind(df, df.cnv)
-            ord <- c(ord, names(sort(table(df.cnv$genes), decreasing = T)))
+            
+            ## first transpose so samples are columns
+            broad.cnv.maf <- t(broad.cnv.maf)
+            broad.cnv.maf <- as.data.frame(broad.cnv.maf)
+            broad.cnv.maf$samples <- rownames(broad.cnv.maf)
+            broad.cnv.maf <- melt(broad.cnv.maf, id = "samples")
+            
+            colnames(broad.cnv.maf) <- c("samples", "genes", "mutations")
+
+            ## convert 1 and -1 to gain and loss for clarity
+            broad.cnv.maf$mutations[broad.cnv.maf$mutations == -1] <- "arm-level loss"
+            broad.cnv.maf$mutations[broad.cnv.maf$mutations == 1] <- "arm-level gain"
+            broad.cnv.maf$mutations[broad.cnv.maf$mutations == 0] <- NA
+            ord.broad.cnv <- names(sort(table(broad.cnv.maf$genes), decreasing = T))
+            
+            ## add to df
+            if(exists("df.combined")){
+                df.combined <- rbind(df.combined, broad.cnv.maf)
+                ord <- c(ord, ord.broad.cnv)
+            }else{
+                df.combined <- broad.cnv.maf
+                ord <- ord.broad.cnv
+            }
         }
     }
     
@@ -500,15 +578,15 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
         ## renames df to enable merging with mutations df, adds to previous dataframe, 
         ## then inserts names at end of dataframe for factor ordering
         colnames(df.pheno) <- c("samples", "genes", "mutations")
-        df <- rbind(df, df.pheno)
+        df.combined <- rbind(df.combined, df.pheno)
         ord <- c(ord, colnames(phenotypes)[-1])
     }
     
     ## if manual ordering supplied, resorts for factor ordering
     if (!missing(manual.order)){
         ## make sure manual names are actually in df
-        if (sum(!(ord %in% df$genes)) > 0){
-            stop(paste("Manual order term contains genes not found in data frame:", ord[!(ord %in% df$genes)]))
+        if (sum(!(ord %in% df.combined$genes)) > 0){
+            stop(paste("Manual order term contains genes not found in data frame: ", ord[!(ord %in% df.combined$genes)]))
         }else {
             ord <- c(manual.order, ord)
             ord <- ord[!duplicated(ord)]
@@ -516,29 +594,19 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
     }
     
     ## creats factors based on levels, removed genes not present in ord conditions
-    df$genes <- factor(df$genes, levels = ord)
-    df <- df[order(df$genes), ]
-    df <- df[!is.na(df$genes), ]
+    df.combined$genes <- factor(df.combined$genes, levels = ord)
+    df.combined <- df.combined[order(df.combined$genes), ]
+    df.combined <- df.combined[!is.na(df.combined$genes), ]
     
     ## reshape long df to wide format to determine ordering of samples (columns)
-    ## first remove non-mutation columns to not intefere with sorting
-    # df.cleaned <- df[!(df$genes %in% colnames(phenotypes)[-1]), ]
-    # 
-    # ## if cnvs supplied, also removes those
-    # if(!missing(maf3)){
-    #     if (!is.na(maf3)){
-    #         df.cleaned <- df.cleaned[!(df.cleaned$genes %in% unique(df.cnv$genes)), ]
-    #     }
-    # }
-    
-    df.cleaned <- df
-    df.wide <- reshape(df.cleaned, v.names = "mutations", idvar = "samples", timevar = "genes", direction = "wide")
+    df.wide <- reshape(df.combined, v.names = "mutations", idvar = "samples", timevar = "genes", direction = "wide")
     for (i in 2:ncol(df.wide)){
         ## change NA's and uncovered to filler which will always order last
         df.wide[, i][is.na(df.wide[, i])] <- "z"
         df.wide[, i][df.wide[, i] == "nc"] <- "z"
         ## change mutations to "mutation" so type doesn't factor into cascading order
-        df.wide[, i][df.wide[, i] != "z"] <- "mutation"
+        df.wide[, i][df.wide[, i] %in% c("frameshift_indel", "missense", "nonsense", "splice_site", "stop_codon", "in_frame_indel", "other", "TSS", 
+                                         "damaging mutation", "focal gain", "focal loss", "rearrangemen")] <- "mutation"
     }
     
     ## sorts by single gene if only one significantly mutated, otherwise all columns
@@ -546,62 +614,69 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
         df.wide <- df.wide[order(df.wide[, 2]), ]
         
     }else{
-        df.wide <- df.wide[do.call(order, df.wide[, -1]), ]
+        df.wide <- df.wide[do.call("order", df.wide[, -1]), ]
     }
     
     ## takes given order, and sorts samples based on ordering
     ## add on samples with no mutations to factor creation so they don't get NA'd
-    missing <- df$sample[!(df$samples %in% df.wide$samples)]
-    df$samples <- factor(df$samples, levels = c(df.wide$sample, missing))
-
-    ## switches factor order back for plotting so most frequent is highest on y axis
-    df$genes <- factor(df$genes, rev(levels(df$genes)))
-    print("plotting")
+    missing <- df.combined$sample[!(df.combined$samples %in% df.wide$samples)]
+    df.combined$samples <- factor(df.combined$samples, levels = c(df.wide$sample, missing))
     
-    df$mutations[is.na(df$mutations)] <- "wt"
+    ## overwrites ordering if fixed order supplied
+    if(!missing(fixed.order)){
+        df.combined$samples <- factor(df.combined$samples, levels = fixed.order)
+    }
+    
+    ## final cleanup
+    ## switches factor order back for plotting so most frequent is highest on y axis
+    df.combined$genes <- factor(df.combined$genes, rev(levels(df.combined$genes)))
+    df.combined$mutations[is.na(df.combined$mutations)] <- "wt"
+    df.combined <- df.combined[df.combined$samples %in% samples,]
+    print("plotting")
     
     ## generate color scheme for plotting
     
-    if (!missing(unique.muts)){
-        print("using consistent color scheme")
-        ## creates levels based on supplied consistent levels, with wt and nc added on at end, with filler based on number of phenotypes 
-        df$mutations <- factor(df$mutations, levels = c(unique.muts, unique(df$mutations)[!(unique(df$mutations) %in% c(unique.muts, "nc", "wt"))], "nc", "wt"))
-        myColors <- c("red", "skyblue", "orange", "yellow", "purple", "gold", "gold", "cyan", distinctColorPalette(length(levels(df$mutations)) - 8))
-        names(myColors) <- levels(df$mutations)
+    if (!missing(col.vector)){
+        print("using supplied color scheme")
         
-        ## sets wt to grey, then removes those factors that aren't present
-        myColors[which(names(myColors) == "wt")] <- "beige"
-        myColors[which(names(myColors) == "nc")] <- "white"
-        myColors <- myColors[levels(df$mutations) %in% unique(df$mutations)]
-        colScale <- scale_fill_manual(values = myColors)
     }else{
         print("using random color scheme")
-        df$mutations <- factor(df$mutations, levels = unique(df$mutations))
-        myColors <- distinctColorPalette(length(levels(df$mutations)))
-        names(myColors) <- levels(df$mutations)
-        myColors[which(names(myColors) == "wt")] <- "beige"
-        myColors[which(names(myColors) == "nc")] <- "white"
-        colScale <- scale_fill_manual(values = myColors)
+        
+        ## first set defaults
+        default.names <- c("arm-level gain", "arm-level loss", "HA", "2DEL")
+        default.colors <- c("red", "blue", "red", "blue")
+        names(default.colors) <- default.names
+        col.vector <- default.colors
     }
+
+    ## gets arguments that don't have assigned color
+    missing.names <- unique(df.combined$mutations)[!(unique(df.combined$mutations) %in% names(col.vector))]
+    missing.colors <- distinctColorPalette(length(missing.names))
+    names(missing.colors) <- missing.names
+    col.vector <- c(col.vector, missing.colors)
+    
+    ## sets wt to grey, then removes those factors that aren't present
+    col.vector[which(names(col.vector) == "wt")] <- "beige"
+    col.vector[which(names(col.vector) == "nc")] <- "white"
+    col.vector <- col.vector[names(col.vector) %in% unique(df.combined$mutations)]
+    colScale <- scale_fill_manual(values = col.vector)
     
     ## generate plot
-    mut <- ggplot(df, aes(x=samples, y=genes, height=0.8, width=0.8)) + 
+    mut <- ggplot(df.combined, aes(x=samples, y=genes, height=0.8, width=0.8)) + 
         geom_tile(aes(fill=mutations)) +
         colScale +
-        #scale_colour_discrete(drop=TRUE, values = c("green", "blue", "red", "yellow", "orange", "purple", "gold", "cyan", "grey"), limits = levels(df$mutations)) +
-        #scale_fill_manual(name = "mutations", values = c("green", "blue", "red", "yellow", "orange", "purple", "gold", "grey")) +
-        xlab("Subject") +
         ggtitle(title) +
         theme(
             legend.key = element_rect(fill='NA'),
             legend.key.size = unit(0.4, 'cm'),
             legend.title = element_blank(),
             legend.position="bottom",
-            legend.text = element_text(size=8, face="bold"),
+            legend.text = element_text(size=legend.font.size, face="bold"),
             axis.ticks.x=element_blank(),
             axis.ticks.y=element_blank(),
-            axis.text.x=element_text(angle = 90, hjust = 1),
-            axis.text.y=element_text(colour="Black"),
+            #axis.text.x=element_text(angle = 90, hjust = 1),
+            axis.text.x=element_blank(),
+            axis.text.y=element_text(colour="Black", size = y.axis.font.size),
             axis.title.x=element_text(face="bold"),
             axis.title.y=element_blank(),
             panel.grid.major.x=element_blank(),
@@ -617,13 +692,17 @@ PlotComut <- function(maf1, maf2 = NULL, maf3 = NULL, samples, input.samples, in
        print(mut) 
     }else{
         print(paste("printing Comut to ", file.path))
-        pdf(file.path, width = 40, height = 30)
+        pdf(file.path, width = dimensions[1], height = dimensions[2])
         print(mut)
         dev.off()
     }
     
     if(return.matrix){
-        return(df.wide)
+        return(df.combined)
+    }
+    
+    if(return.plot){
+        return(mut)
     }
 }
 
