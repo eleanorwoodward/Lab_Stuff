@@ -1,5 +1,26 @@
 ## Data cleaning and pre-processing
 
+## latest iteration of master sheet
+master.sheet <- read.delim("../OncDRS data/Master Sheet 20170524.txt", stringsAsFactors = F)
+master.sheet <- merge(master.sheet, identifiers[, c("CHILDRENS_MRN", "PATIENT_ID"),], all.x = TRUE)
+write.table(master.sheet, "../OncDRS data/master master 20170524.tsv", row.names = FALSE, sep = "\t")
+## update date of death
+ids <- master.sheet$PATIENT_ID[master.sheet$Date_of_death == "can't find"]
+
+death.info <- identifiers[identifiers$PATIENT_ID %in% ids, c("PATIENT_ID", "DERIVED_DEATH_DT")]
+death.info$DERIVED_DEATH_DT_fixed <- as.Date(death.info$DERIVED_DEATH_DT, "%d-%b-%y")
+
+colnames(death.info)[3] <- "DoD"
+master.sheet$DoD <- master.sheet$Date_of_death
+
+## censored values: double check once we have all dates that this is correct
+master.sheet$DoD <- as.Date(master.sheet$DoD, "%m/%d/%Y")
+master.sheet <- merge(master.sheet, death.info[, -2], "PATIENT_ID", all.x = TRUE)
+master.sheet$DoD.x[!is.na(master.sheet$DoD.y)] <- master.sheet$DoD.y[!is.na(master.sheet$DoD.y)]
+colnames(master.sheet)[32] <- "DoD"
+master.sheet <- master.sheet[, -33]
+
+write.table(master.sheet, "../OncDRS data/Master Sheet 20170512.tsv", sep = "\t", row.names = F)
 ## Generate master table for all samples from various data sources
 setwd("C:/Users/Noah/Syncplicity Folders/Pan-CNS Oncopanel/OncDRS data/")
 
@@ -7,7 +28,7 @@ master.sheet <- read.csv("REQ_ID08_65337_ONCOPANEL_SPECIMEN.csv", stringsAsFacto
 oncomap <- read.csv("REQ_ID08_65337_ONCOMAP_MUT_RESULTS_PROFILE.csv", stringsAsFactors = F)
 oncomap$na_column <- NA
 cancer.diag <- read.csv("REQ_ID08_65337_CANCER_DIAGNOSIS_CAREG.csv", stringsAsFactors = F)
-identifiers <- read.csv("REQ_ID08_65337_PT_INFO_STATUS_REGISTRATION.csv", stringsAsFactors = F)
+identifiers <- read.csv("../OncDRS data/REQ_ID08_65337_PT_INFO_STATUS_REGISTRATION.csv", stringsAsFactors = F)
 master.sheet.short <- master.sheet[, c("PATIENT_ID", "SAMPLE_ACCESSION_NBR", "PRIMARY_CANCER_DIAGNOSIS", "ORIGINAL_PATH_DIAGNOSIS", 
                                        "BIOPSY_SITE", "BIOPSY_SITE_TYPE", "TUMOR_PURITY", "PANEL_VERSION", "REPORT_DT", "REPORT_COMMENT", "SNV_COUNT")]
 
@@ -34,9 +55,6 @@ for (i in 1:length(temp)){
     DATE[i] <- as.Date(temp[i], origin = "1970-01-01" )
 }
 master.sheet.short$DATE <- DATE
-
-## marks which samples will have CNV data from oncopanel
-master.sheet.short$CNV_ONC <- DATE > "2014-04-10"
 
 ## marks which patients have multiple tumors
 master.sheet.short$multiple_samples <- master.sheet.short$PATIENT_ID %in% master.sheet.short[(duplicated(master.sheet.short$PATIENT_ID)),]$PATIENT_ID 
@@ -84,76 +102,114 @@ write.table(master.sheet.ordered, "../Analysis/master.sheet.tsv", row.names = F,
 
 ## second round cleaning, after manual annotation of pathology subtypes
 
-master.sheet <- read.delim("../OncDRS data/Master_Sheet_R_Upload.txt", stringsAsFactors = F)
-master.sheet <- master.sheet[, !(colnames(master.sheet) == "Cancer_grade")]
+master.sheet <- read.delim("../OncDRS data/Master_Sheet_R_Upload 20170502.txt", stringsAsFactors = F)
+master.sheet[master.sheet$MRN %in% master.sheet$MRN[duplicated(master.sheet$MRN)], ]$multiple_samples <- TRUE
 
-## add back block number
+## add block number
 opanel.sheet <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_SPECIMEN.csv", stringsAsFactors = F)
 opanel.sheet <- opanel.sheet[, 4:5]
 master.sheet <- merge(master.sheet, opanel.sheet, "SAMPLE_ACCESSION_NBR", all.x = T)
-
-
-## read in annotated version of master sheet to add meningioma/pituitary/glioma pathology information
-pit.data <- read.delim("../OncDRS data/Pituitary_R_Upload.txt", stringsAsFactors = F, skip = 1)
-pit.data <- pit.data[, c("Surg.Path..", "Recurrent.", "Histochemical.Expression")]
-colnames(pit.data) <- c("BLOCK_ACCESSION_NBR", "Primary", "Cancer_Type_Specific")
-pit.data$Primary <- !pit.data$Primary
-master.sheet <- merge(master.sheet, pit.data, "BLOCK_ACCESSION_NBR", all.x = TRUE)
-
-## because merge doesn't work when rows have different values, have to combine values for common columns, even if NA's as placeholders
-master.sheet$Primary.x[!is.na(master.sheet$Primary.y)] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y)]
-master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y)] <- master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y)]
-colnames(master.sheet)[c(10,11)] <- c("Cancer_Type_Specific", "Primary")
-master.sheet <- master.sheet[, -c(20, 21)]
-
-## same thing for meningioma data
-men.data <- read.delim("../OncDRS data/Meningioma_R_Upload.txt", stringsAsFactors = F)
-men.data <- men.data[, c("surg_path", "primary", "tumor_subtype", "grade")]
-colnames(men.data) <- c("BLOCK_ACCESSION_NBR", "Primary", "Cancer_Type_Specific", "Grade")
-men.data$Primary <- men.data$Primary == TRUE
-men.data$BLOCK_ACCESSION_NBR <- sapply(men.data$BLOCK_ACCESSION_NBR, function(x){gsub("(BS)([0-9])", "\\1-\\2", x)}, USE.NAMES = FALSE)
-master.sheet <- merge(master.sheet, men.data, "BLOCK_ACCESSION_NBR", all.x = TRUE)
-
-master.sheet$Primary.x[!is.na(master.sheet$Primary.y)] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y)]
-master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y)] <- master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y)]
-colnames(master.sheet)[c(10,11)] <- c("Cancer_Type_Specific", "Primary")
-master.sheet <- master.sheet[, -c(20, 21)]
-
-
-## same thing for glioma data
-lgg.data <- read.delim("../OncDRS data/LGG_R_Upload.txt", stringsAsFactors = F)
-lgg.data <- lgg.data[, c("Surg.Path", "Diagnosis..........Path.Report.", "Primary.vs.Recurrent")]
-lgg.data$Grade <- as.integer(sapply(lgg.data$Diagnosis..........Path.Report., function(x){gsub("[A-z]", "", x)}, USE.NAMES = FALSE))
-lgg.data$Cancer_Type_Specific <- sapply(lgg.data$Diagnosis..........Path.Report., function(x){gsub("[0-9]", "", x)}, USE.NAMES = FALSE)
-lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "O"] <- "Oligo"
-lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "A"] <- "Astro"
-lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "DA"] <- "DiffuseAstro"
-lgg.data$Primary <- lgg.data$Primary.vs.Recurrent == "Primary"
-lgg.data <- lgg.data[, -c(2:3)]
-colnames(lgg.data)[1] <- "BLOCK_ACCESSION_NBR"
-master.sheet <- merge(master.sheet, lgg.data, "BLOCK_ACCESSION_NBR", all.x = TRUE)
-
-master.sheet$Primary.x[!is.na(master.sheet$Primary.y)] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y)]
-master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y)] <- master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y)]
-master.sheet$Grade.x[!is.na(master.sheet$Grade.y)] <- master.sheet$Grade.y[!is.na(master.sheet$Grade.y)]
-colnames(master.sheet)[c(10,11,20)] <- c("Cancer_Type_Specific", "Primary", "Grade")
-master.sheet <- master.sheet[, -c(21, 22, 23)]
-master.sheet$Grade[is.na(master.sheet$Grade)] <- ""
-master.sheet$Cancer_Type_Specific[is.na(master.sheet$Cancer_Type_Specific)] <- ""
-master.sheet$Primary[is.na(master.sheet$Primary)] <- ""
-write.table(master.sheet, "../OncDRS data/master.sheet.tsv", row.names = F, sep = "\t")
+colnames(master.sheet)[which(colnames(master.sheet) == "BLOCK_ACCESSION_NBR.x")] <- "BLOCK_ACCESSION_NBR"
+master.sheet <- master.sheet[, -(which(colnames(master.sheet) == "BLOCK_ACCESSION_NBR.y"))]
 
 ## remove trailing block number
 master.sheet$BLOCK_ACCESSION_NBR <- sapply(master.sheet$BLOCK_ACCESSION_NBR, function(x){gsub("-[A-Z][0-9]$", "", x)}, USE.NAMES = FALSE)
 master.sheet$BLOCK_ACCESSION_NBR <- sapply(master.sheet$BLOCK_ACCESSION_NBR, function(x){gsub(" [A-Z][0-9]$", "", x)}, USE.NAMES = FALSE)
 
-merged <- merge(master.sheet, pit.data, "BLOCK_ACCESSION_NBR", all.x = T)
-## read in raw data 
+
+## read in annotated version of other master sheets to add meningioma/pituitary/glioma pathology information
+pit.data <- read.delim("../OncDRS data/Pituitary_R_Upload_20170501.txt", stringsAsFactors = F)
+pit.data <- pit.data[, c("Surg.Path..", "BWH_MRN", "Recurrent.", "Histochemical.Expression", "Disrupted")]
+colnames(pit.data) <- c("BLOCK_ACCESSION_NBR", "MRN", "Primary", "Cancer_Type_Specific", "Cancer_Type_Details")
+pit.data$Primary <- !pit.data$Primary
+master.sheet <- merge(master.sheet, pit.data, "MRN", all.x = TRUE)
+
+## checks to see which ones disagree, remove data from those. 
+master.sheet[which(master.sheet$BLOCK_ACCESSION_NBR.y != master.sheet$BLOCK_ACCESSION_NBR.x), c("exclude")] <-  "check"
+
+## because merge doesn't work when rows have different values, have to combine values for common columns, even if NA's as placeholders
+master.sheet$Primary.x[!is.na(master.sheet$Primary.y) & !master.sheet$multiple_samples] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y) & !master.sheet$multiple_samples]
+master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y) & !master.sheet$multiple_samples] <- 
+    master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y) & !master.sheet$multiple_samples]
+master.sheet$Cancer_Type_Details.x[!is.na(master.sheet$Cancer_Type_Details.y)] <- master.sheet$Cancer_Type_Details.y[!is.na(master.sheet$Cancer_Type_Details.y)]
+colnames(master.sheet)[colnames(master.sheet) %in% c("BLOCK_ACCESSION_NBR.x", "Cancer_Type_Specific.x", "Cancer_Type_Details.x", "Primary.x")] <- 
+    c("BLOCK_ACCESSION_NBR", "Cancer_Type_Specific", "Cancer_Type_Details", "Primary")
+master.sheet <- master.sheet[, -c(which(colnames(master.sheet) %in% c("Cancer_Type_Specific.y", "Primary.y", "Cancer_Type_Details.y", "BLOCK_ACCESSION_NBR.y")))]
+write.table(master.sheet, "master.sheet.tsv", sep = "\t", row.names = F)
+## save point
+master.sheet.pit <- master.sheet
+master.sheet <- master.sheet.pit
+
+## same thing for meningioma data
+men.data <- read.delim("../OncDRS data/archive/Meningioma_R_Upload.txt", stringsAsFactors = F)
+men.data <- men.data[, c("surg_path", "mrn", "primary", "tumor_subtype", "grade")]
+colnames(men.data) <- c("BLOCK_ACCESSION_NBR", "MRN", "Primary", "Cancer_Type_Specific", "Grade")
+men.data$Primary <- men.data$Primary == TRUE
+men.data$BLOCK_ACCESSION_NBR <- sapply(men.data$BLOCK_ACCESSION_NBR, function(x){gsub("(BS)([0-9])", "\\1-\\2", x)}, USE.NAMES = FALSE)
+men.data$BLOCK_ACCESSION_NBR <- sapply(men.data$BLOCK_ACCESSION_NBR, function(x){gsub("(BS-[0-9][0-9])([A-z0-9])", "\\1-\\2", x)}, USE.NAMES = FALSE)
+master.sheet <- merge(master.sheet, men.data, "MRN", all.x = TRUE)
+
+## checks to see which ones disagree, remove data from those
+master.sheet[which(master.sheet$BLOCK_ACCESSION_NBR.y != master.sheet$BLOCK_ACCESSION_NBR.x), c("exclude")] <- "check"
+
+master.sheet$Primary.x[!is.na(master.sheet$Primary.y) & !master.sheet$multiple_samples] <- master.sheet$Primary.y[!is.na(master.sheet$Primary.y) & !master.sheet$multiple_samples]
+master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y) & !master.sheet$multiple_samples] <- 
+    master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y) & !master.sheet$multiple_samples]
+master.sheet$Grade.x[!is.na(master.sheet$Grade.y) & !master.sheet$multiple_samples] <- master.sheet$Grade.y[!is.na(master.sheet$Grade.y) & !master.sheet$multiple_samples]
+colnames(master.sheet)[colnames(master.sheet) %in% c("BLOCK_ACCESSION_NBR.x", "Cancer_Type_Specific.x", "Primary.x", "Grade.x")] <- 
+    c("BLOCK_ACCESSION_NBR", "Cancer_Type_Specific", "Grade", "Primary")
+master.sheet <- master.sheet[, -c(which(colnames(master.sheet) %in% c("Cancer_Type_Specific.y", "Primary.y", "BLOCK_ACCESSION_NBR.y", "Grade.y")))]
+
+
+## same thing for glioma data
+lgg.data <- read.delim("../OncDRS data/LGG_R_Upload.txt", stringsAsFactors = F)
+lgg.data <- lgg.data[, c("Surg.Path", "BWH.MRN", "Diagnosis..........Path.Report.", "Primary.vs.Recurrent")]
+lgg.data$Grade <- as.integer(sapply(lgg.data$Diagnosis..........Path.Report., function(x){gsub("[A-z]", "", x)}, USE.NAMES = FALSE))
+lgg.data$Cancer_Type_Specific <- sapply(lgg.data$Diagnosis..........Path.Report., function(x){gsub("[0-9]", "", x)}, USE.NAMES = FALSE)
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "O"] <- "Oligo"
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "A"] <- "Astro"
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "DA"] <- "DiffuseAstro"
+lgg.data$Cancer_Type_Specific[lgg.data$Cancer_Type_Specific == "AA"] <- "AnaplasticAstro"
+lgg.data$Primary <- lgg.data$Primary.vs.Recurrent == "Primary"
+lgg.data <- lgg.data[, -c(3,4)]
+colnames(lgg.data) <- c("BLOCK_ACCESSION_NBR", "MRN", "Grade", "Cancer_Type_Specific", "Primary")
+master.sheet <- merge(master.sheet, lgg.data, "MRN", all.x = TRUE)
+
+## checks to see which ones disagree, remove data from those
+master.sheet[which(master.sheet$BLOCK_ACCESSION_NBR.y != master.sheet$BLOCK_ACCESSION_NBR.x), c("exclude")] <- "check"
+
+
+master.sheet$Primary.x[!is.na(master.sheet$Primary.y) & !master.sheet$multiple_samples & master.sheet$Primary.x == ""] <- 
+    master.sheet$Primary.y[!is.na(master.sheet$Primary.y) & !master.sheet$multiple_samples & master.sheet$Primary.x == ""]
+master.sheet$Cancer_Type_Specific.x[!is.na(master.sheet$Cancer_Type_Specific.y) & !master.sheet$multiple_samples & master.sheet$Cancer_Type_Specific.x == ""] <- 
+    master.sheet$Cancer_Type_Specific.y[!is.na(master.sheet$Cancer_Type_Specific.y) & !master.sheet$multiple_samples & master.sheet$Cancer_Type_Specific.x == ""]
+master.sheet$Grade.x[!is.na(master.sheet$Grade.y) & !master.sheet$multiple_samples & master.sheet$Grade.x == ""] <- 
+    master.sheet$Grade.y[!is.na(master.sheet$Grade.y) & !master.sheet$multiple_samples & master.sheet$Grade.x == ""]
+colnames(master.sheet)[colnames(master.sheet) %in% c("BLOCK_ACCESSION_NBR.x", "Cancer_Type_Specific.x", "Primary.x", "Grade.x")] <- 
+    c("BLOCK_ACCESSION_NBR", "Cancer_Type_Specific", "Grade", "Primary")
+master.sheet <- master.sheet[, -c(which(colnames(master.sheet) %in% c("Cancer_Type_Specific.y", "Primary.y", "BLOCK_ACCESSION_NBR.y", "Grade.y")))]
+
+## add in dob, gender, and dod if available
+master.sheet <- merge(master.sheet, identifiers[, c("PATIENT_ID", "DERIVED_DEATH_IND","GENDER_NM", "BIRTH_DT")], all.x =)
+
+
+## clean up prior to writing to table for manual review
+master.sheet$Grade[is.na(master.sheet$Grade)] <- ""
+master.sheet$Cancer_Type_Specific[is.na(master.sheet$Cancer_Type_Specific)] <- ""
+master.sheet$Primary[is.na(master.sheet$Primary)] <- ""
+master.sheet$Location_CNS[is.na(master.sheet$Location_CNS)] <- ""
+master.sheet$Location_detailed[is.na(master.sheet$Location_detailed)] <- ""
+write.table(master.sheet, "../OncDRS data/master.sheet.tsv", row.names = F, sep = "\t")
+
+
+## read in raw mutations, copy number, and rearrangement data
+## start with mutations
 all.mutations <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_MUTATION_RESULTS.csv", stringsAsFactors = F)
 
 ## rename to consistent gene name
 all.mutations$BEST_EFF_GENE[all.mutations$BEST_EFF_GENE == "MLL"] <- "KMT2A"
 all.mutations$BEST_EFF_GENE[all.mutations$BEST_EFF_GENE == "MLL2"] <- "KMT2D"
+all.mutations$BEST_EFF_GENE[all.mutations$BEST_EFF_GENE == "TERT" & all.mutations$CANONICAL_VARIANT_CLASS == "TERT_Promoter"] <- "TERT_Promoter"
 
 ## standardizes mutation classification
 all.mutations$variant_classification <- "other"
@@ -165,7 +221,7 @@ all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c
 all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Splice_Acceptor", "Splice_Donor", "Splice_Region", "Splice_Site")] <- "splice_site"
 all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Stop_Lost", "Nonstop_Mutation", "incomplete_terminal_codon")]<- "stop_codon"
 all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Nonsense", "Nonsense_Mutation")] <- "nonsense"
-all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Translation_Start_Site", "Initiator_Codon")] <- "TSS"
+#all.mutations$variant_classification[all.mutations$BEST_EFF_VARIANT_CLASS %in% c("Translation_Start_Site", "Initiator_Codon")] <- "TSS"
 
 
 all.mutations.tier1.3 <- all.mutations[all.mutations$TIER_ID < 4, ]
@@ -174,7 +230,7 @@ all.cnvs <- read.csv("../OncDRS data/REQ_ID08_65337_ONCOPANEL_CNV_RESULTS.csv", 
 
 
 ## read in coverage information
-gene.list <- read.delim("../OncDRS data/Gene_lists.txt", stringsAsFactors = F)
+gene.list <- read.delim("../OncDRS data/archive/Gene_lists.txt", stringsAsFactors = F)
 not.covered <- list(gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v1[-1])], gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v2[-1])],
                     gene.list$Gene[-1][!as.numeric(gene.list$OncoPanel.v3[-1])])
 not.covered.map <- gene.list$Gene[-1][!as.numeric(gene.list$OncoMap[-1])]
@@ -242,7 +298,25 @@ all.svs[all.svs$STRUCTURAL_VARIANT_TEXT == all.svs$STRUCTURAL_VARIANT_TEXT[1388]
 write.csv(all.svs[, c("PATIENT_ID", "SAMPLE_ACCESSION_NBR", "BLOCK_ACCESSION_NBR", "STRUCTURAL_VARIANT_TEXT", "empty")], 
           "../OncDRS data/rearrangements_for_manual_review.csv")
 
-all.svs <- read.delim("C:/Users/Noah/Syncplicity Folders/Pan-CNS Oncopanel/OncDRS data/rearrangements_for_manual_review_R_upload.txt", stringsAsFactors = F)
-all.svs <- all.svs[, -c(7:8, 10:11)]
-all.svs$rearrangement <- FALSE
-all.svs$rearrangement[all.svs$Gene1 != ""] <- TRUE
+all.svs <- read.delim("C:/Users/Noah/Syncplicity Folders/Pan-CNS Oncopanel/OncDRS data/rearrangements_for_manual_review_R_upload_20170526.txt", stringsAsFactors = F)
+all.svs <- all.svs[all.svs$variant != "", ]
+all.sv.indels <- all.svs[all.svs$variant == "indel", ]
+all.svs <- all.svs[all.svs$variant == "rearrangement", ]
+
+all.sv.indels <- all.sv.indels[, -7]
+
+## create merged list of indels and SVs for combining with mutations
+all.svs.formatted <- all.sv.indels
+colnames(all.svs.formatted)[6:7] <- c("BEST_EFF_GENE", "variant_classificaiton")
+all.svs.breakpoints <- all.svs
+all.svs.breakpoints<- all.svs.breakpoints[, -6]
+colnames(all.svs.breakpoints)[6] <- "Gene1"
+all.svs.breakpoints <- rbind(all.svs.breakpoints, all.svs[, -7])
+colnames(all.svs.breakpoints)[6:7] <- c("BEST_EFF_GENE", "variant_classification")
+all.svs.breakpoints <- all.svs.breakpoints[!(all.svs.breakpoints$BEST_EFF_GENE %in% c("intergenic", "not_given", "not_giveN")), ]
+colnames(all.svs.formatted) <- colnames(all.svs.breakpoints)
+all.svs.formatted <- rbind(all.svs.formatted, all.svs.breakpoints)
+
+
+
+
