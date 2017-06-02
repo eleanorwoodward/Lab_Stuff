@@ -156,9 +156,18 @@ temp.cnv.focal <- temp.cnv.focal[temp.cnv.focal$GENE %in% names(sort(table(temp.
 
 temp.cnv.broad <- all.cnvs.broad[, colnames(all.cnvs.broad) %in% pathologies[["glioma"]]]
 
+## Rare comut
+## traiditonal criteria of tier 1-3 with added 4 for x most common genes
+temp.snv <- all.mutations.tier1.4[!(all.mutations.tier1.4$SAMPLE_ACCESSION_NBR %in% unlist(pathologies[c("glioma", "meningioma", "pituitary", "metastasis")])), ]
+temper.snv <- subset(all.mutations.tier1.3, SAMPLE_ACCESSION_NBR %in% temp.snv$SAMPLE_ACCESSION_NBR)
+temp.snv.1 <- temp.snv[temp.snv$BEST_EFF_GENE %in% temper.snv$BEST_EFF_GENE, ]
+
+temp.cnv.focal <- all.cnv.high[!(all.cnv.high$SAMPLE_ACCESSION_NBR %in% unlist(pathologies[c("glioma", "meningioma", "pituitary", "metastasis")])), ]
+
+temp.cnv.broad <- all.cnvs.broad[, !(colnames(all.cnvs.broad) %in% unlist(pathologies[c("glioma", "meningioma", "pituitary", "metastasis")])), ]
 
 ## combine all mutation classes together
-alterations <- all.mutations.tier1.4[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")]
+alterations <- temp.snv.1[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")]
 alterations.cnv <- all.cnv.high[, c("SAMPLE_ACCESSION_NBR", "GENE", "CNV_TYPE_CD")]
 colnames(alterations.cnv) <- colnames(alterations)
 alterations.svs <- all.svs.formatted[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")]
@@ -171,20 +180,15 @@ alterations$variant_classification_simple[alterations$variant_classification == 
 alterations$variant_classification_simple[alterations$variant_classification == "rearrangement"] <- "rearrangement"
 alterations$variant_classification_simple[alterations$variant_classification == "missense"] <- "missense"
 alterations <- alterations[alterations$BEST_EFF_GENE %in% names(sort(table(alterations$BEST_EFF_GENE), decreasing = TRUE)[1:30]), ]
-clinical <- master.sheet[master.sheet$SAMPLE_ACCESSION_NBR %in% pathologies[["glioma"]], c("SAMPLE_ACCESSION_NBR","Cancer_Type_Specific", "Primary", "Grade", "exclude")]
-clinical$Cancer_Type_Specific[clinical$Cancer_Type_Specific == "" & clinical$exclude == "bch"] <- "Pediatric"
-clinical$Cancer_Type_Specific[clinical$Cancer_Type_Specific %in% c("DiffuseAstro", "AnaplasticAstro", "PilocyticAstro")] <- "Astro"
-clinical$Cancer_Type_Specific[clinical$Cancer_Type_Specific %in% c("Astrocytoma with piloid features", "ATRT", "endocrine", "Glioma", "Glioneuronal", "?HGG_NOS", "?LGG_NOS", 
-                                                                   "Angiocentric", "Neuroectodermal", "Neuronal", "no tumor?", "non-diagnostic", "Small Cell GBM", 
-                                                                   "Xanthroastrocytoma")] <- "Other"
-clinical$Cancer_Type_Specific[clinical$Cancer_Type_Specific %in% c("Ganglio", "Paraganglioglioma", "Paraganglioma")] <- "Ganglio"
-clinical$Cancer_Type_Specific[clinical$Cancer_Type_Specific == "OligoAstro"] <- "Oligo"
+clinical <- master.sheet[!(master.sheet$SAMPLE_ACCESSION_NBR %in% unlist(pathologies[c("glioma", "meningioma", "pituitary", "metastasis")])),
+                         c("SAMPLE_ACCESSION_NBR","Cancer_Type_Broad", "Primary", "Grade")]
+
 PlotComut(
     mut.maf1 = alterations, 
     #mut.maf2 = temp.snv.2, 
     #focal.cnv.maf = temp.cnv.focal,
-    broad.cnv.maf = temp.cnv.broad[c("1p", "7p", "7q", "10q", "19q"), ],
-    samples = master.sheet[master.sheet$SAMPLE_ACCESSION_NBR %in% pathologies[["glioma"]], "SAMPLE_ACCESSION_NBR"],
+    broad.cnv.maf = temp.cnv.broad,
+    samples = master.sheet[master.sheet$SAMPLE_ACCESSION_NBR %in% clinical$SAMPLE_ACCESSION_NBR, "SAMPLE_ACCESSION_NBR"],
     input.samples = "SAMPLE_ACCESSION_NBR", 
     input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification_simple",
     dimensions = c(18,10), 
@@ -193,10 +197,9 @@ PlotComut(
                    "Angiocentric" = "orange", "Astro" = "green", "DiffuseAstro" = "green", "Oligo" = "yellow", "OligoAstro" = "yellow", "PilocyticAstro" = "green", 
                    "0" = "gray90", "1" = "gray70", "2" = "gray50", "3" = "gray25", "4" = "gray1"),
     #fixed.order = clust$labels[clust$order],
-    manual.order = c("Cancer_Type_Specific", "TP53", "EGFR"),
-    file.path = "../Analysis/GBM Comut All Alterations by Cancer Type TP53 EGFR.pdf",
-    phenotypes = clinical[, -c(4:5)])
-
+    manual.order = c("Cancer_Type_Broad"),
+    #file.path = "../Analysis/GBM Comut All Alterations by Cancer Type TP53 EGFR.pdf",
+    phenotypes = clinical)
 
 
 
@@ -368,3 +371,12 @@ temp <- df
 temp.glioma <- df[df$samples %in% df[df$mutations == "Glioma", ]$samples,] 
 temp.glioma <- temp.glioma[temp.glioma$mutations != 0, ]
 
+
+## hypermutators analysis
+hyper <- master.sheet$SAMPLE_ACCESSION_NBR[as.numeric(master.sheet$SNV_COUNT) > 50]
+hyper <- hyper[!is.na(hyper)]
+hyper.info <- master.sheet[master.sheet$SAMPLE_ACCESSION_NBR %in% hyper, ]
+hyper.info <- hyper.info[, c("MRN", "Cancer_Type_Broad", "Cancer_Type_Specific", "SNV_COUNT", "CHILDRENS_MRN", "SAMPLE_ACCESSION_NBR")]
+hyper.mutations <- all.mutations.tier1.4[all.mutations.tier1.4$BEST_EFF_GENE %in% c("MSH2", "MSH6", "MLH1"), ]
+hyper.info.combined <- merge(hyper.info, hyper.mutations[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "BEST_EFF_PROTEIN_CHANGE", "BEST_EFF_CDNA_CHANGE", "variant_classification")])
+write.csv(hyper.info.combined, "Hypermutator_sample_info.csv", quote = FALSE, row.names = FALSE)
