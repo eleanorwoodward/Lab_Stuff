@@ -2,13 +2,21 @@
 
 
 ## generate list of mutations
-master.snvs <- all.mutations.tier1.3[all.mutations.tier1.3$SAMPLE_ACCESSION_NBR %in% pathologies[[4]], ]
-master.snvs <- master.snvs[master.snvs$BEST_EFF_GENE %in% names(sort(table(master.snvs$BEST_EFF_GENE), decreasing =TRUE)[1:15]), ]
+master.snvs <- all.mutations.tier1.4[all.mutations.tier1.4$SAMPLE_ACCESSION_NBR %in% pathologies[[4]], ]
+tier.3.muts <- all.mutations.tier1.3[all.mutations.tier1.3$SAMPLE_ACCESSION_NBR %in% pathologies[[4]], ]
+master.snvs <- master.snvs[master.snvs$BEST_EFF_GENE %in% tier.3.muts$BEST_EFF_GENE, ]
+master.snvs <- master.snvs[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")]
 
 ## focal CNVs
 master.cnv.focal <- all.cnv.high[all.cnv.high$SAMPLE_ACCESSION_NBR %in% pathologies[[4]], c("SAMPLE_ACCESSION_NBR", "GENE", "CNV_TYPE_CD")]
 master.cnv.focal <- all.cnv.high[, c("SAMPLE_ACCESSION_NBR", "GENE", "CNV_TYPE_CD")]
-master.cnv.focal <- master.cnv.focal[master.cnv.focal$GENE %in% names(sort(table(master.cnv.focal$GENE), decreasing = TRUE))[1:5], ]
+colnames(master.cnv.focal) <- c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")
+
+master.svs <- all.svs.formatted
+master.svs <- master.svs[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")]
+
+master.alterations <- rbind(master.snvs, master.svs, master.cnv.focal)
+master.alterations <- master.alterations[master.alterations$BEST_EFF_GENE %in% names(sort(table(master.alterations$BEST_EFF_GENE), decreasing = TRUE))[1:25], ]
 
 ## arm level cnvs
 master.cnv.broad <- abs(all.cnvs.broad)
@@ -18,44 +26,38 @@ master.cnv.broad <- master.cnv.broad[rownames(master.cnv.broad) %in% c("1p", "7p
 
 ## clinical correlates
 master.phenotypes <- master.sheet[master.sheet$Cancer_Type_Broad == "Glioma", ]
-master.phenotypes <- master.phenotypes[master.phenotypes$exclude == "", ]
-master.phenotypes <- master.phenotypes[, c("SAMPLE_ACCESSION_NBR", "Primary", "Cancer_Type_Specific")]
+master.phenotypes <- master.phenotypes[!(master.phenotypes$exclude %in% c("duplicate", 1)), ]
+master.phenotypes <- master.phenotypes[, c("SAMPLE_ACCESSION_NBR", "Primary", "Age_Interval")]
 
 
-master.snvs <- master.snvs[master.snvs$SAMPLE_ACCESSION_NBR %in% master.phenotypes$SAMPLE_ACCESSION_NBR, ]
-master.cnv.focal <- master.cnv.focal[master.cnv.focal$SAMPLE_ACCESSION_NBR %in% master.phenotypes$SAMPLE_ACCESSION_NBR, ]
+master.alterations <- master.alterations[master.alterations$SAMPLE_ACCESSION_NBR %in% master.phenotypes$SAMPLE_ACCESSION_NBR, ]
 master.cnv.broad <- master.cnv.broad[, colnames(master.cnv.broad) %in% master.phenotypes$SAMPLE_ACCESSION_NBR]
 
-## back of envelopes
-## for 1065 samples, what percent of samples need to be mutated before we see significant result for overlap?
-fisher.test(matrix(c(1,9,9,81), nrow= 2))
-
-
-## given starting conditions, produces overlap that would be expected by default
-
-row.marginal <- c(980, 85, 1065)
-col.marginal <- c(1013, 52, 1065)
-
-matrix.1 <- floor(matrix(c(row.marginal[1] * (col.marginal[1] / col.marginal[3]), row.marginal[2] * (col.marginal[1] / col.marginal[3]), 
-              row.marginal[1] * (col.marginal[2] / col.marginal[3]), row.marginal[2] * (col.marginal[2] / col.marginal[3])), nrow = 2))
-
-
-fisher.test(matrix.1)
-fisher.test(matrix(c(5,5,5,980), nrow = 2))
-
-## for co-occurence, essentially no lower bound on what we can detect, because expectation is that there is essentially no overlap. However,
-## to detect anti-corrlelations, expectation needs to be that there is some overlap
-
-fisher.test(matrix(c(0,100,100,800), nrow= 2))
-fisher.test(matrix(c(0,50,50,900), nrow= 2))
-
+## generate data
+glioma.alterations <- PlotComut(
+    mut.maf1 = master.alterations, 
+    broad.cnv.maf = master.cnv.broad,
+    samples = master.phenotypes$SAMPLE_ACCESSION_NBR,
+    input.samples = "SAMPLE_ACCESSION_NBR", 
+    input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification",
+    dimensions = c(18,10), 
+    col.vector = c("damaging mutation" = "orange", "focal loss" = "blue", "focal gain" = "red", "rearrangement" = "green", "missense" = "skyblue",
+                   "arm-level gain" = "red", "arm-level loss" = "blue","Glioblastoma" = "black", "AnaplasticAstro" = "green", "Pediatric" = "purple",
+                   "Angiocentric" = "orange", "Astro" = "green", "DiffuseAstro" = "green", "Oligo" = "yellow", "OligoAstro" = "yellow", "PilocyticAstro" = "green", 
+                   "0" = "gray90", "1" = "gray70", "2" = "gray50", "3" = "gray25", "4" = "gray1"),
+    #fixed.order = clust$labels[clust$order],
+    #manual.order = c("Cancer_Type_Specific", "TP53", "EGFR"),
+    #file.path = "../Analysis/GBM Comut All Alterations by Cancer Type TP53 EGFR.pdf",
+    return.matrix = TRUE,
+    #phenotypes = clinical[, -c(4:5)]
+    )
 
 
 helper <- function(x){
     sapply(x, function(y){if (y=="wt"){return(0)}else {return(1)}}, USE.NAMES = FALSE)
 }
 
-glioma.mutations.wide <- reshape(glioma.mutations, v.names = "mutations", idvar = "samples", timevar = "genes", direction = "wide")
+glioma.mutations.wide <- reshape(glioma.alterations, v.names = "mutations", idvar = "samples", timevar = "genes", direction = "wide")
 df.wide.glioma <- glioma.mutations.wide
 df.wide.glioma <- df.wide.glioma[!is.na(df.wide.glioma$mutations.7p), ]
 df.wide.glioma <- as.data.frame(cbind(as.character(df.wide.glioma[, 1]), apply(df.wide.glioma[, -1], 2, helper)), stringsAsFactors = FALSE)
@@ -70,16 +72,18 @@ df.wide.glioma$Age_interval <- 0
 df.wide.glioma$Age_interval[glioma.mutations.wide[!is.na(glioma.mutations.wide$mutations.7p), ]$mutations.Age_interval == "Old"] <- 1
 
 
-
-
-
 ## automated loop for comparing correlations from two different conditions
 gbms <- master.sheet$SAMPLE_ACCESSION_NBR[master.sheet$Cancer_Type_Specific == "Glioblastoma"]
-input.1 <- df.wide.glioma[!(df.wide.glioma$V1 %in% gbms), ]
+input.1 <- df.wide.glioma
+input.1 <- df.wide.glioma[(df.wide.glioma$V1 %in% gbms), ]
+
+input.2 <- input.1[(input.1$V1 %in% gbms), ]
 input.2 <- input.1[input.1$TP53 == 0, -2]
+input.2 <- input.1[input.1$IDH1 == 1, -4]
+input.2 <- input.1[input.1$EGFR == 0, -3]
 
 inputs <- list(input.1, input.2)
-path <- "correlations_heatmap_glioma_vs_lgg.pdf"
+path <- "correlations_heatmap_gbm_vs_EGFR_wt.pdf"
 for (i in 1:length(inputs)){
     
     ## initialize values
@@ -180,6 +184,7 @@ for (i in 1:length(inputs)){
         heatmap <- ggplot(data = baseline, aes(x = gene1, y = gene2)) + geom_tile(aes(fill = q.vals.plotting)) + 
             scale_shape_identity() + geom_point(aes(shape = missing, color = factor(missing))) + scale_color_manual(values = c("purple", "orange")) +
             scale_fill_gradient2(limits = c(-30, 30), low = "blue", mid = "white", high = "red") + rameen_theme + theme(panel.background = element_rect(fill = "grey96"))
+        print(heatmap)
         dev.off()
         print(heatmap)
     }
