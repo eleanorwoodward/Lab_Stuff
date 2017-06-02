@@ -126,7 +126,7 @@ clustering.input <- PlotComut(
     samples = master.sheet$SAMPLE_ACCESSION_NBR,
     input.samples = "SAMPLE_ACCESSION_NBR", 
     input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification", gene.cutoff = 60, 
-    #return.matrix = TRUE,
+    return.matrix = TRUE,
     dimensions = c(18,10), 
     col.vector = c("frameshift_indel" = "red", "missense" ="red" , "nonsense" = "red", "splice_site" = "red", "stop_codon" = "red", "in_frame_indel" = "red",
                    "other" = "red", "arm-level gain" = "red", "arm-level loss" = "red", "2DEL" = "red", "HA" = "red", "indel" = "red", "rearrangement" = "red",
@@ -136,6 +136,21 @@ clustering.input <- PlotComut(
     ,phenotypes = clustering.clinical[, -3]
 )
 
+
+## make fake data for testing
+samples <- c(rep("A", 40), rep("B", 40), rep("C", 40))
+row1 <- c(rbinom(40, 1, .8), rbinom(40, 1, .5), rbinom(40, 1, .2))
+row2 <- c(rbinom(40, 1, .9), rbinom(40, 1, .5), rbinom(40, 1, .1))
+row3 <- c(rbinom(40, 1, .9), rbinom(40, 1, .1), rbinom(40, 1, .9))
+row4 <- c(rbinom(40, 1, .1), rbinom(40, 1, .9), rbinom(40, 1, .4))
+row5 <- c(rbinom(40, 1, .9), rbinom(40, 1, .3), rbinom(40, 1, .9))
+row6 <- c(rbinom(40, 1, .1), rbinom(40, 1, .1), rbinom(40, 1, .9))
+test.matrix <- rbind(row1, row2, row3, row4, row5, row6)
+test.matrix <- test.matrix[, colSums(test.matrix) != 0]
+
+test.output <- nmf(test.matrix, 4)
+aheatmap(test.matrix, annCol = samples, annColors = list(c("red", "blue", "green")))
+coefmap(minfit(test.output), annCol = samples, Colv = "basis", annColors = list(c("red", "orange", "purple", "green", "black", "blue")))
 
 ## change to non-negative matrix, features as rows and samples as columns (still not sure why not reversed??)
 nmf.input <- reshape(clustering.input, idvar = "samples", timevar = "genes", direction = "wide")
@@ -149,32 +164,40 @@ nmf.input <- apply(nmf.input, 2, as.numeric)
 
 ## remove empty columns
 nmf.input <- nmf.input[, colSums(nmf.input) != 0]
+nmf.input <- nmf.input[-23, ]
 
-## run clustering with specific k value for multiple iterations at that value
-output.4 <- nmf(nmf.input, 4)
 
 column.annotations <- master.sheet
 column.annotations <- column.annotations[column.annotations$SAMPLE_ACCESSION_NBR %in% colnames(nmf.input), ]
 column.annotations$Cancer_Type_Broaddd <- column.annotations$Cancer_Type_Broad
 column.annotations$Cancer_Type_Broaddd[column.annotations$Cancer_Type_Broaddd %in% c("Craniopharyngioma", "Paraganglioma",  "Pineal_parenchymal_tumor", "Chondrosarcoma",
                                                                                      "Schwannoma", "Chordoma", "Schwannoma check", "Neuroblastoma", "Lymphoma",
-                                                                                     "Medulloblastoma", "Pituitary_other", "Ependymoma")] <- "other"
+                                                                                     "Medulloblastoma", "Pituitary_other", "Ependymoma", "Paraganglioglioma", "SFT")] <- "other"
+## re order based on nmf order
+column.annotations <- column.annotations[order(match(column.annotations$SAMPLE_ACCESSION_NBR, colnames(nmf.input))), ]
+## order columns by consensus classes defined from given number of iterations with set k value
+aheatmap(nmf.input, annCol = column.annotations$Cancer_Type_Broaddd, annColors = list(c("red", "yellow", "blue", "green", "purple", "orange")))
 
-table(column.annotations$Cancer_Type_Specific)
-
-aheatmap(nmf.input, annCol = column.annotations$Cancer_Type_Broad)
-
-opar <- par(mfrow = c(1,2))
-
-## order columns by consensus classes defined from multiple iterations with given k value
 
 ## if multiple runs
-coefmap(output.3, Colv = "consensus")
+nmf.output.4 <- nmf(nmf.input, 2, nrun = 2)
+coefmap(nmf.output.4, Colv = "consensus")
 
 ## if single run
-coefmap(minfit(output.4), annCol = column.annotations$Cancer_Type_Broaddd, Colv = "basis")
-par(opar)
+nmf.output.3 <- nmf(nmf.input, 3)
+pdf("../Analysis/NMF K2 heatmap.pdf")
+coefmap(minfit(nmf.output.2), annCol = column.annotations$Cancer_Type_Broaddd, annColors = list(c("red", "yellow", "blue", "green", "purple", "orange")), Colv = "basis")
+dev.off()
 
+## calculate overlap
+classifier <- nmf.output.2@fit@H
+classifier <- as.data.frame(t(classifier))
+classifier$subtype <- column.annotations$Cancer_Type_Broaddd
+classifier$group <- "A"
+classifier$group[classifier$V2 > classifier$V1] <- "B"
+pdf("NMF K2 summary.pdf")
+ggplot(data = classifier, aes(x = subtype, fill = group)) + geom_bar(position = "dodge")
+dev.off()
 
 ## show relationship between input variables and metagenes, with each variable coded by the dominant metagene it contributes to
 basismap(output)
@@ -182,8 +205,6 @@ basismap(output)
 
 ## show a consensus map of the clustering based on multiple iterations
 consensusmap(output, annCol = column.annotations$Cancer_Type_Specific)
-
-
 
 
 ## multiple ranks at multiple runs each time
