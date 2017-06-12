@@ -14,24 +14,24 @@ source("http://www.bioconductor.org/biocLite.R")
 # install.packages("devtools")
 # install.packages("R.utils")
 # install.packages("NMF")
-# install.packages("kohonen")
+#install.packages("kohonen")
 # install.packages("nycflights13")
 #install.packages("randomcoloR")
 #install.packages("NMF")
 #install.packages("gridExtra")
-install.packages("cowplot")
+#install.packages("cowplot")
 
 ## Nice packages
-library(grDevices)
+#library(grDevices)
 library(RColorBrewer)
 library(dplyr)
-library(rtracklayer)
+#library(rtracklayer)
 library(ggplot2)
-library(curl)
+#library(curl)
 library(R.utils)
-library(Biobase)
+#library(Biobase)
 #library(kohonen)
-library(nycflights13)
+#library(nycflights13)
 library(reshape2)
 library(randomcoloR)
 library(NMF)
@@ -756,4 +756,150 @@ PlotHistogramCoverage <- function(maf, gene.column, samples, title){
     print(plot)
 }
 
+CalculateEntropy <- function(tree, correction.method = "none", detailed = NA){
+    ## takes in a matrix of samples and features, then determines which column segregregates the data to minimize the entropy
+    
+    ## Args:
+        ## tree: a matrix or data frame. Columns are features of interest, rows are samples
+        ## correction.method: one of none, mult, info, or recip. If none, no attempt is made to correct for
+            ## for differences in entropy resulting from unbalanced propotion of 1/0. Multiplicative attempts to correct for entropy 
+            ## bias by multiplying by (1 / entropy) of the feature of interest. Information corrects by calculating the entropy of the
+            ## current row, and subtracting the entropy of each row from that, computing information gain. Reciprocal multiplies the 1/0
+        ## count for each column by the reciprocal of the count for the column of interest to balance out effects due purely to count
+        ## detailed: optional argument that will produce detailed breakdown of the entropy contribution of each gene to a 
+        ## column of interest
+    
+    ## error checking
+    if (ncol(tree) < 3){
+        stop("Insufficient number of columns")
+    }
+    
+    if (nrow(tree) < 3){
+        stop("Insufficient number of rows")
+    }
+    
+    if (!missing(correction.method)){
+        if (!(correction.method %in% c("mult", "info", "recip"))){
+            stop("Unknown correction method: must supply either mult, info, or recip")
+        }
+    }
+    
+    tree <- apply(tree, 2, as.numeric)
+    ## determines if any columns need to be skipped
+    sums <- colSums(tree)
+    skip.idx <- sums == 0| sums == nrow(tree)
+    tree <- tree[, !skip.idx]
+    
+    ## determines which counts of "i" will be marked
+    if (!missing(detailed)){
+        detailed.idx <- which(colnames(tree) %in% detailed)
+        detailed.counts <- list()
+    }else{
+        detailed.idx <- c()
+    }
+    
+    ## calculate entropy
+    cumulative.entropy <- c()
+    for (i in 1:ncol(tree)){
+    
+        total.entropy <- 0
+        detailed.entropy <- c()
+        
+        ## calculates reciprocal for reciprocal method
+        n2.i <- sum(as.numeric(tree[, i]))
+        n1.i <- nrow(tree) - n2.i
+        s2 <- (n1.i + n2.i) / n2.i
+        s1 <- (n1.i + n2.i) / n1.i
+        
+        for(j in 1:ncol(tree)){
+            if (i == j){
+                ## skip
+            }else{
+                ## split data based on identified feature, figure out total on each side
+                x <- table(as.numeric(tree[, i]), as.numeric(tree[, j]))
+                n1 <- x[1,2]
+                n2 <- x[2,2]
+                
+                if(correction.method == "recip"){
+                    n1 <- n1 * s1
+                    n2 <- n2 * s2    
+                }
+                
+                p1 <- n1 / (n1 + n2)
+                p2 <- n2 / (n1 + n2)
+                
+                ## sums entropies
+                if (!p1 | !p2){
+                    entropy <- 0
+                }else{
+                    entropy <- -(p1*log2(p1) + p2*log2(p2))
+                }
+                total.entropy <- total.entropy + entropy
+                
+                if (i %in% detailed.idx){
+                    detailed.entropy <- c(detailed.entropy, entropy)
+                    names(detailed.entropy)[length(detailed.entropy)] <- colnames(tree)[j]
+                }
+            }
+        }
+        ## penalize total based on skewed entropy of factor
+        p1 <- n1.i / (n1.i + n2.i)
+        p2 <- n2.i / (n1.i + n2.i)
+        
+        if (correction.method == "mult"){
+            total.entropy <- -total.entropy / (p1*log2(p1) + p2*log2(p2))
+        }
+        
+        if (correction.method == "info"){
+            total.entropy <- -((ncol(tree) -1) * (p1*log2(p1) + p2*log2(p2))) - total.entropy 
+            
+        }
+
+        ## additive correction: equivalent to finding information gain in each case
+        cumulative.entropy[i] <- total.entropy
+        names(cumulative.entropy)[i] <- colnames(tree)[i]
+        
+        if(i %in% detailed.idx){
+            detailed.counts[[length(detailed.counts) + 1]] <- detailed.entropy
+            names(detailed.counts)[length(detailed.counts)] <- colnames(tree)[i]
+        }
+    
+    }
+    if (!missing(detailed)){
+        return(list(cumulative.entropy, detailed.counts))
+    }else{
+        return(cumulative.entropy)    
+    }
+    
+}
+
+
+BranchPlotter <- function(entropy.data, hit.number = 4){
+    ## Takes an entropy object and plots the data at each branch point
+    
+    ## Args:
+        ## entropy data: object created by CalculateEntropy
+        ## hit.number: the number of features to show detailed information on
+    
+    summary.plot.data <- data.frame(entropy.data[[1]], names(entropy.data[[1]]), stringsAsFactors = FALSE)
+    colnames(summary.plot.data) <- c("information_gain", "feature")
+    summary.plot.data$feature <- factor(summary.plot.data$feature, levels = summary.plot.data$feature[order(summary.plot.data$information_gain, decreasing = TRUE)])
+    summary.plot.data <- summary.plot.data[summary.plot.data$information_gain > 0, ]
+    summary.plot <- ggplot(data = summary.plot.data, aes(x = feature, y = information_gain)) + geom_bar(stat = "identity") + 
+        labs(title = "Features ranked by net information gain") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
+    
+    detailed.plots <- as.character(sort(summary.plot.data$feature)[1:hit.number])
+    return.plots <- list(summary.plot)
+    for (i in 1:length(detailed.plots)){
+        subplot.idx <- which(names(entropy.data[[2]]) == detailed.plots[i])
+        subplot.data <- data.frame(entropy.data[[2]][[subplot.idx]], names(entropy.data[[2]][[subplot.idx]]), stringsAsFactors = FALSE)
+        colnames(subplot.data) <- c("entropy_contribution", "feature")
+        subplot.data$feature <- factor(subplot.data$feature, levels = subplot.data$feature[order(subplot.data$entropy_contribution)])
+        subplot.data <- subplot.data[subplot.data$entropy_contribution < 0.8, ]
+        plot.title <- paste("Entropy by feature for", detailed.plots[i])
+        return.plots[[i + 1]] <- ggplot(data = subplot.data, aes(x = feature, y = entropy_contribution)) + geom_bar(stat = "identity") + 
+            labs(title = plot.title) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_y_continuous(limits = c(0, 0.8))
+    }
+    return(return.plots)
+}
 
