@@ -1,77 +1,21 @@
 ## Clustering analysis
-
-## generate distances matrix using dist(). Distances are computed between rows: need to transpose if samples in columns
-
-
-matrix <- rbind(c(1, rep(0,7),1,1), c(rep(0,10)), c(rep(0,10)), c(0, rep(1,7),0,0), c(1, rep(0,7),1,1))
-chromosomes <- paste("chr", 1:10, "p", sep = "")
-rownames(matrix) <- c(paste("sample", 1:5, sep =  ""))
-colnames(matrix) <- chromosomes
-
-d <- dist(matrix)
-clust <- hclust(d)
-plot(clust)
-matrix.df <- data.frame(matrix)
-matrix.df$samples <-  rownames(matrix)
-
-samples <- rownames(matrix)
-long.df <- melt(matrix.df, id = "samples")
-
-long.df$samples <- factor(long.df$samples, levels = clust$labels)
-long.df$value[abs(long.df$value) < 3] <- NA
-long.df$value[long.df$value > 3] <- 1
-long.df$value[long.df$value < -3] <- -1
-
-mut <- ggplot(long.df, aes(x=samples, y=variable, height=0.9, width=0.9)) + 
-    geom_tile(aes(fill=value)) +
-    scale_fill_gradient(low = "blue", high = "red", na.value = "white", limits = c(-1, 1)) +
-    xlab("Subject") +
-    ggtitle("Trial Heatmap") +
-    theme(
-        legend.key = element_rect(fill='NA'),
-        legend.key.size = unit(1, 'cm'),
-        legend.title = element_blank(),
-        legend.position="bottom",
-        legend.text = element_text(size=8, face="bold"),
-        axis.ticks.x=element_blank(),
-        axis.ticks.y=element_blank(),
-        axis.text.x=element_text(angle = 90, hjust = 1),
-        axis.text.y=element_text(colour="Black"),
-        axis.title.x=element_text(face="bold"),
-        axis.title.y=element_blank(),
-        panel.grid.major.x=element_blank(),
-        panel.grid.major.y=element_blank(),
-        panel.grid.minor.x=element_blank(),
-        panel.grid.minor.y=element_blank(),
-        panel.background=element_blank()
-    )
-print(mut) 
-
-
-## create legend
-legend.df <- data.frame(rep(samples, 2), c(rep("tumor", length(samples)), rep("sex", length(samples))), 
-                        c(rep(c("glioma", "meingioma"), length(samples)/2), rep(c("male", "female"), length(samples)/2)))
-colnames(legend.df) <- c("samples", "phenotype", "values")
-l <- ggplot(legend.df, aes(x=samples, y = phenotype)) + coord_fixed(ratio = .2) + geom_tile(aes(fill = values))
-
-
-fd=data.frame(x = rep(c("x","y","z"),3), 
-              y=c("a","b","c","b","c","a","c","a","b"),
-              z=c(0,1,0,1,1,1,0,0,1))
-
-# plot
-p <- ggplot(fd, aes(x, y)) + geom_tile(aes(fill = z)) + 
-scale_fill_gradient(low = "white",high = "steelblue", limits=c(0,1)) + 
-theme_grey() + 
-labs(x = "", y= "") + 
-coord_fixed(ratio= 1)
-scale_x_discrete(expand = c(0, 0)) + 
-scale_y_discrete(expand = c(0, 0)) + 
-theme(legend.position = "none", axis.ticks = element_blank(), axis.text.x = element_text(size=12, angle=90, hjust=0, colour="black"))
-
-
 ## use NMF to cluster
-## adapted from: https://cran.r-project.org/web/packages/NMF/vignettes/heatmaps.pdf and 
+## adapted from: https://cran.r-project.org/web/packages/NMF/vignettes/heatmaps.pdf 
+## generate fake data for clustering
+num.samples <- 50
+num.genes <- 50 
+group1 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
+group2 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
+group3 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
+group4 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
+group5 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
+
+input.group <- cbind(group1, group2, group3, group4, group5)
+
+colnames(input.group) <- c(rep("A", num.samples), rep("B",num.samples), rep("C",num.samples), rep("D",num.genes), rep("D",num.genes))
+write.table(input.group, "../Upload to xchip/example_nmf_input.txt", sep = "\t")
+
+
 
 ## first generate combined alterations list
 alterations <- all.mutations.tier1.4[, c("SAMPLE_ACCESSION_NBR", "BEST_EFF_GENE", "variant_classification")]
@@ -162,7 +106,7 @@ clustering.input.cnvs <- PlotComut(
 
 ## change to non-negative matrix, features as rows and samples as columns
 clustering.input.gliomas <- clustering.input[clustering.input$samples %in% master.sheet$SAMPLE_ACCESSION_NBR[master.sheet$Cancer_Type_Broad == "Glioma"], ]
-nmf.input <- reshape(clustering.input.gliomas, idvar = "samples", timevar = "genes", direction = "wide")
+nmf.input <- reshape(clustering.input, idvar = "samples", timevar = "genes", direction = "wide")
 
 nmf.input[nmf.input == "wt"] <- 0
 nmf.input[, -1][nmf.input[, -1] != 0] <- 1
@@ -205,8 +149,11 @@ column.annotations$Cancer_Type_Glioma_Grade[!(column.annotations$Cancer_Type_Gli
 ## re order based on nmf order
 column.annotations <- column.annotations[order(match(column.annotations$SAMPLE_ACCESSION_NBR, colnames(nmf.input))), ]
 
+write.table(nmf.input, "../Upload to xchip/all_samples_nmf_input.txt", sep = "\t")
 
+testing <- read.delim("../Upload to xchip/all_samples_nmf_input.txt", stringsAsFactors = FALSE)
 ## if multiple runs
+nmf.consensus <- nmf(nmf.input, 1:8)
 nmf.output.4 <- nmf(nmf.input, 2, nrun = 2)
 coefmap(nmf.output.4, Colv = "consensus")
 
