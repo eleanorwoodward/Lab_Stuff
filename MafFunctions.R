@@ -866,40 +866,125 @@ CalculateEntropy <- function(tree, correction.method = "none", detailed = NA){
     
     }
     if (!missing(detailed)){
-        return(list(cumulative.entropy, detailed.counts))
+        return(list(cumulative.entropy, detailed.counts, tree))
     }else{
         return(cumulative.entropy)    
     }
     
 }
 
+OptimizedHelper <- function(tree, idx.1, idx.2){
+    ## functionalizes inner for loop for feed in to apply
+    x <- table(as.numeric(tree[, idx.1]), as.numeric(tree[, idx.2]))
+    n1 <- x[1,2]
+    n2 <- x[2,2]
+    
+    p1 <- n1 / (n1 + n2)
+    p2 <- n2 / (n1 + n2)
+    
+    ## sums entropies
+    if (!p1 | !p2){
+        0
+    }else{
+        -(p1*log2(p1) + p2*log2(p2))
+    }
+}
 
-BranchPlotter <- function(entropy.data, hit.number = 4){
+OptimizedCalculateEntropy <- function(tree, correction.method = "none", detailed = NA){
+    ## trimmed down version for permutations testing
+    ## requires tree to be input as numeric object, with full/empty columns removed
+   num.cols <- ncol(tree)
+ 
+    ## calculate entropy
+    cumulative.entropy <- rep(0, num.cols)
+    for (i in 1:num.cols){
+        
+        total.entropy <- 0
+        inner.idx <- 1:num.cols
+        inner.idx <- inner.idx[inner.idx != i]
+        total.entropy <- sum(sapply(inner.idx, function(x){OptimizedHelper(tree, i, x)}))
+        ## adjust based on information gain
+        n2.i <- sum(as.numeric(tree[, i]))
+        n1.i <- nrow(tree) - n2.i
+        p1 <- n1.i / (n1.i + n2.i)
+        p2 <- n2.i / (n1.i + n2.i)
+        total.entropy <- -((ncol(tree) -1) * (p1*log2(p1) + p2*log2(p2))) - total.entropy 
+        cumulative.entropy[i] <- total.entropy
+    }
+    return(cumulative.entropy)    
+}
+
+
+BranchPlotter <- function(entropy.data, hit.number = 4, incidence = TRUE){
     ## Takes an entropy object and plots the data at each branch point
     
     ## Args:
         ## entropy data: object created by CalculateEntropy
         ## hit.number: the number of features to show detailed information on
-    
-    summary.plot.data <- data.frame(entropy.data[[1]], names(entropy.data[[1]]), stringsAsFactors = FALSE)
+        ## incidence: boolean that determines whether incidence plot is generated
+    if (!is.list(entropy.data)){
+        summary.plot.data <- data.frame(entropy.data, names(entropy.data), stringsAsFactors = FALSE)
+    }else{
+        summary.plot.data <- data.frame(entropy.data[[1]], names(entropy.data[[1]]), stringsAsFactors = FALSE)
+    }
     colnames(summary.plot.data) <- c("information_gain", "feature")
     summary.plot.data$feature <- factor(summary.plot.data$feature, levels = summary.plot.data$feature[order(summary.plot.data$information_gain, decreasing = TRUE)])
     summary.plot.data <- summary.plot.data[summary.plot.data$information_gain > 0, ]
     summary.plot <- ggplot(data = summary.plot.data, aes(x = feature, y = information_gain)) + geom_bar(stat = "identity") + 
         labs(title = "Features ranked by net information gain") + theme(axis.text.x = element_text(angle = 45, hjust = 1))
     
-    detailed.plots <- as.character(sort(summary.plot.data$feature)[1:hit.number])
+    detailed.plots <- names(entropy.data[[2]])
     return.plots <- list(summary.plot)
-    for (i in 1:length(detailed.plots)){
-        subplot.idx <- which(names(entropy.data[[2]]) == detailed.plots[i])
-        subplot.data <- data.frame(entropy.data[[2]][[subplot.idx]], names(entropy.data[[2]][[subplot.idx]]), stringsAsFactors = FALSE)
-        colnames(subplot.data) <- c("entropy_contribution", "feature")
-        subplot.data$feature <- factor(subplot.data$feature, levels = subplot.data$feature[order(subplot.data$entropy_contribution)])
-        subplot.data <- subplot.data[subplot.data$entropy_contribution < 0.8, ]
-        plot.title <- paste("Entropy by feature for", detailed.plots[i])
-        return.plots[[i + 1]] <- ggplot(data = subplot.data, aes(x = feature, y = entropy_contribution)) + geom_bar(stat = "identity") + 
-            labs(title = plot.title) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_y_continuous(limits = c(0, 0.8))
+    
+    
+    if (hit.number != 0){
+        for (i in 1:length(detailed.plots)){
+            subplot.idx <- which(names(entropy.data[[2]]) == detailed.plots[i])
+            subplot.data <- data.frame(entropy.data[[2]][[subplot.idx]], names(entropy.data[[2]][[subplot.idx]]), stringsAsFactors = FALSE)
+            colnames(subplot.data) <- c("entropy_contribution", "feature")
+            subplot.data$feature <- factor(subplot.data$feature, levels = subplot.data$feature[order(subplot.data$entropy_contribution)])
+            subplot.data <- subplot.data[subplot.data$entropy_contribution < 0.8, ]
+            plot.title <- paste("Entropy by feature for", detailed.plots[i])
+            return.plots[[i + 1]] <- ggplot(data = subplot.data, aes(x = feature, y = entropy_contribution)) + geom_bar(stat = "identity") + 
+                labs(title = plot.title) + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + scale_y_continuous(limits = c(0, 0.8))
+        }
+    }
+    
+    if (incidence){
+        
+        incidence.plot.data <- colSums(entropy.data[[3]])
+        incidence.plot.data <- data.frame(names(incidence.plot.data), as.numeric(incidence.plot.data), stringsAsFactors = FALSE)
+        colnames(incidence.plot.data) <- c("feature", "count")
+        incidence.plot.data <- incidence.plot.data[incidence.plot.data$feature %in% detailed.plots, ]
+        incidence.plot.data$feature <- factor(incidence.plot.data$feature, levels = levels(summary.plot.data$feature))
+        incidence.plot <- ggplot(data = incidence.plot.data, aes (x = feature, y = count)) + geom_bar(stat = "identity") +
+            labs(title = "Number of samples with alteration") + scale_y_continuous(limits = c(0, nrow(entropy.data[[3]])))
+        return.plots[[length(return.plots) + 1]] <- incidence.plot
     }
     return(return.plots)
 }
+
+PermuteDecisionTree <- function(tree, permutation.number){
+    ## Takes a decision tree, permutes the data, then recalculates entropy to determine whether cutoffs are significant
+    
+    ## Args:
+        ## tree: a decision tree
+        ## permutation number: number of iterations to permute through
+    reps <- sum(colSums(tree) != 0 & colSums(tree) != nrow(tree))
+    sample.number <- nrow(tree)
+    permuted.values <- rep(0, permutation.number)
+    #permuted.values <- rep(0, permutation.number * reps)
+    for (i in 1:permutation.number){
+        permuted.tree <- apply(tree, 2, function(x){(sample(x, size = sample.number, FALSE))})
+        #permuted.values[(reps * (i - 1) + 1):(reps * i)] <- as.numeric(OptimizedCalculateEntropy(permuted.tree))
+        permuted.values[i] <- max(as.numeric(OptimizedCalculateEntropy(permuted.tree)))
+    }
+    
+    #sapply(values, function(x){sum(permuted.values >= x)}) / length(permuted.values)
+    permuted.values
+}
+
+
+
+
 
