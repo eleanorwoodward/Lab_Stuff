@@ -37,3 +37,32 @@ pdf("VISTA Comparison Mean.pdf")
 ggplot(data = combined, aes(x = cohort, y = mean)) + geom_dotplot(binaxis = "y", stackdir = "center")
 dev.off()
 
+## correlation of OGN with NF2 alterations
+OGN <- read.delim("C:/Users/Noah/Syncplicity Folders/OGN (Ian Dunn)/Revision/OGN_OD_values.txt", stringsAsFactors = FALSE)
+OGN <- OGN[-(208:254), ]
+OGN$SP.Number <- gsub("(BS)([0-9]*)", "\\1-\\2", OGN$SP.Number)
+OGN$SP.Number  <- gsub("(BS-[0-9]*)-([A-z])([0-9]*)", "\\1-\\3", OGN$SP.Number)
+OGN$SP.Number[107] <- "BS-13-54508"
+OGN$SP.Number[81] <- "BS-12-487968"
+OGN$SP.Number[109] <- "BS-13-A50415"
+colnames(OGN)[2] <- "Sample"
+
+NF2 <- read.delim("C:/Users/Noah/Syncplicity Folders/OGN (Ian Dunn)/Revision/NF2_status.txt", stringsAsFactors = FALSE)
+colnames(NF2)[2] <- "Sample"
+
+NF2$Sample <- gsub("(BS)([0-9]*)([A-z0-9]*)", "\\1-\\2-\\3", NF2$Sample)
+NF2$Sample <- gsub("(BS)---([0-9]*-[A-z0-9]*)", "\\1-\\2", NF2$Sample)
+NF2$Sample <- gsub("([A-z0-9]*)--([A-z0-9]*)", "\\1-\\2", NF2$Sample)
+NF2$Sample <- trimws(NF2$Sample, "both")
+OGN$mutation.data <- (OGN$Sample %in% NF2$Sample)
+table(OGN$mutation.data)
+
+OGN.annotated <- OGN[OGN$mutation.data, ]
+OGN.annotated <- merge(OGN.annotated, NF2[, c("Sample", "NF2", "chr22.loss.acgh")], "Sample")
+
+ggplot(data = OGN.annotated, aes(y = OD, x = NF2)) + geom_dotplot()
+wilcox.test(OGN.annotated$OD[OGN.annotated$double == TRUE], OGN.annotated$OD[OGN.annotated$double == FALSE])
+
+
+
+
