@@ -1,16 +1,35 @@
 ## Clustering analysis
 ## use NMF to cluster
 ## adapted from: https://cran.r-project.org/web/packages/NMF/vignettes/heatmaps.pdf 
+## https://cran.r-project.org/web/packages/NMF/vignettes/NMF-vignette.pdf
+## https://cran.r-project.org/web/packages/NMF/NMF.pdf
 ## generate fake data for clustering
-num.samples <- 50
-num.genes <- 50 
-group1 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
-group2 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
-group3 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
-group4 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
-group5 <- t(sapply(sample(15:45, num.genes, TRUE), function(x){rnorm(num.samples, x, 2)}))
+num.samples <- 200
+num.genes <- 20
+set.seed(50)
+group1 <- t(sapply(sample(seq(0.01, .8, 0.01), num.genes, TRUE), function(x){rbinom(num.samples, 1, x)}))
+group2 <- t(sapply(sample(seq(0.01, .8, 0.01), num.genes, TRUE), function(x){rbinom(num.samples, 1, x)}))
+group3 <- t(sapply(sample(seq(0.01, .8, 0.01), num.genes, TRUE), function(x){rbinom(num.samples, 1, x)}))
+group4 <- t(sapply(sample(seq(0.01, .8, 0.01), num.genes, TRUE), function(x){rbinom(num.samples, 1, x)}))
+group5 <- t(sapply(sample(seq(0.01, .8, 0.01), num.genes, TRUE), function(x){rbinom(num.samples, 1, x)}))
 
 input.group <- cbind(group1, group2, group3, group4, group5)
+
+##possibility: nmfEstimateRank
+
+test.2 <- nmf(testing, 2)
+
+testing.r.3 <- nmf(input.group, 2:7, nrun = 20, seed = 123456)
+plot(hello)
+plot(testing.r.5)
+
+saveRDS(testing.r.3, "../Upload to xchip/testing.object.RDS")
+hello <- readRDS("../Upload to xchip/NMF_OUPUT.RDS")
+
+coefmap(minfit(testing.r.3), annCol = colnames(input.group), annColors = list(c("red", "yellow", "blue", "green4", "purple", "orange")), Colv = "basis")
+
+
+consensusmap(testing.r.5)
 
 colnames(input.group) <- c(rep("A", num.samples), rep("B",num.samples), rep("C",num.samples), rep("D",num.genes), rep("D",num.genes))
 write.table(input.group, "../Upload to xchip/example_nmf_input.txt", sep = "\t")
@@ -109,6 +128,7 @@ clustering.input.gliomas <- clustering.input[clustering.input$samples %in% maste
 nmf.input <- reshape(clustering.input, idvar = "samples", timevar = "genes", direction = "wide")
 
 nmf.input[nmf.input == "wt"] <- 0
+nmf.input[nmf.input == "nc"] <- 0
 nmf.input[, -1][nmf.input[, -1] != 0] <- 1
 nmf.input <- t(nmf.input)
 colnames(nmf.input) <- nmf.input[1, ]
@@ -157,20 +177,26 @@ nmf.consensus <- nmf(nmf.input, 1:8)
 nmf.output.4 <- nmf(nmf.input, 2, nrun = 2)
 coefmap(nmf.output.4, Colv = "consensus")
 
+
+## read in nmf data generated from broad server
+nmf.glioma.broad <- readRDS("c:/Users/Noah/Syncplicity Folders/Pan-CNS Oncopanel/Analysis/6.12-6.22/NMF_OUPUT_4_200.RDS")
+
+
 ## if single run
 nmf.output.glioma.4 <- nmf(nmf.input, 4, seed = 123456789)
-tiff("../Analysis/NMF Glioma K4 heatmap.tiff", width = 1000, height = 1000)
+tiff("../Analysis/NMF K4 heatmap.tiff", width = 800, height = 800)
 pdf("../Analysis/NMF K4 heatmap.pdf")
-coefmap(minfit(nmf.output.glioma.4), annCol = column.annotations$Cancer_Type_Glioma, annColors = list(c("red", "yellow", "blue", "green4", "purple", "orange")), Colv = "basis")
+coefmap(minfit(nmf.glioma.broad), annCol = column.annotations$Cancer_Type_Broaddd, annColors = list(c("red", "yellow", "blue", "green4", "purple", "orange")), Colv = "basis")
 dev.off()
 
 ## calculate overlap
-classifier <- nmf.output.glioma.4@fit@H
+classifier <- nmf.glioma.broad@fit@H
 classifier <- as.data.frame(t(classifier))
-classifier$subtype <- column.annotations$Cancer_Type_Glioma_Grade
+classifier$subtype <- column.annotations$Cancer_Type_Broaddd_Glioma
 classifier$basis <- sapply(1:nrow(classifier), function(x){which(classifier[x, 1:(ncol(classifier) - 1)] == max(classifier[x, 1:(ncol(classifier) -1)]))[1]}, 
                            USE.NAMES = FALSE)
 classifier$subtype[classifier$subtype == ""] <- "unlabeled"
+classifier$sample <- column.annotations$SAMPLE_ACCESSION_NBR
 
 ## percentage based classifier
 percent.classifier <- table(classifier$basis, classifier$subtype)
@@ -182,26 +208,77 @@ colnames(percent.classifier) <- c("basis", "subtype", "percent")
 percent.classifier$basis <- paste("factor", percent.classifier$basis, sep = "_")
 
 
-pdf("NMF Glioma K4 summary by basis.pdf", width = 10, height = 7)
+pdf("NMF K4 summary by basis.pdf", width = 10, height = 7)
 colors <- distinctColorPalette(length(unique(classifier$subtype)))
 names(colors) <- unique(classifier$subtype)
 ggplot(data = classifier, aes(x = basis, fill = factor(subtype))) + geom_bar(position = "dodge") + scale_fill_manual(values = colors)
 dev.off()
 
-pdf("NMF Glioma K4 summary by basis percent.pdf", width = 10, height = 7)
+pdf("NMF K4 summary by basis percent.pdf", width = 10, height = 7)
 ggplot(data = percent.classifier, aes(x = basis, y = percent, fill = subtype)) + geom_bar(stat = "Identity", position = "dodge") + scale_fill_manual(values = colors)
 dev.off()
 
 
 
 pdf("NMF Glioma K4 summary by subtype with grade.pdf", width = 10, height = 7)
-ggplot(data = classifier, aes(x = subtype, fill = factor(basis))) + geom_bar(position = "dodge") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+pdf("NMF K4 summary by subtype flipped.pdf")
+colors.factor <- distinctColorPalette(length(unique(classifier$basis)))
+ggplot(data = classifier[!(classifier$subtype == "Oligo" & classifier$basis != 1), ], aes(x = subtype, fill = factor(basis))) + geom_bar(position = "dodge") + coord_flip() + rameen_theme + scale_fill_manual(values = colors.factor)
++ theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 + coord_flip()
 dev.off()
 
 pdf("NMF Glioma K4 summary by subtype percent.pdf", width = 10, height = 7)
-ggplot(data = percent.classifier, aes(x = subtype, y = percent, fill = basis)) + geom_bar(stat = "Identity", position = "dodge") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+tiff("NMF K4 summary by subtype percent.tiff")
+ggplot(data = percent.classifier, aes(x = subtype, y = percent, fill = basis)) + geom_bar(stat = "Identity", position = "dodge") 
++ theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 dev.off()
+
+
+## grey out factors that aren't significant enriched
+incidence.table <- table(classifier$subtype, classifier$basis)
+grey.table <- incidence.table
+
+for (i in 1:nrow(incidence.table)){
+    total <- sum(incidence.table[i, ])
+    base.prop <- matrix(c(total/4, total*3/4), ncol = 2)
+    grey.idx <- rep(1, ncol(incidence.table))
+    
+    for (j in 1: ncol(incidence.table)){
+        current.prop <- matrix(c(incidence.table[i, j], total - incidence.table[i, j]), ncol = 2)
+        if (prop.test(rbind(current.prop, base.prop))$p.value < 0.05 & current.prop[1,1] > base.prop[1,1]){
+            grey.idx[j] <- 0
+        }
+    }
+    
+    grey.table[i, ] <- grey.idx
+}
+
+classifier.grey <- classifier
+
+for (i in 1:nrow(grey.table)){
+    for (j in 1:ncol(grey.table)){
+        if (grey.table[i, j]){
+            classifier.grey$basis[classifier.grey$basis == colnames(grey.table)[j] & classifier.grey$subtype == rownames(grey.table)[i]] <- 
+                classifier.grey$basis[classifier.grey$basis == colnames(grey.table)[j] & classifier.grey$subtype == rownames(grey.table)[i]] + 0.5
+        }
+    }
+}
+
+classifier.grey$basis <- factor(classifier.grey$basis, levels = sort(unique(classifier.grey$basis)))
+
+pdf("NMF K4 summary by subtype flipped grey.pdf")
+colors.grey <- distinctColorPalette(4)
+colors.grey <- c(colors.grey, colors.grey)
+names(colors.grey)[5:8] <- c(1.5, 2.5, 3.5, 4.5)
+colors.grey[5:8] <- "grey"
+
+ggplot(data = classifier.grey, aes(x = subtype, fill = factor(basis))) + geom_bar(position = "dodge") + coord_flip() + rameen_theme + scale_fill_manual(values = colors.grey)
++ theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
++ coord_flip()
+dev.off()
+
+
 
 ## plot percentage of samples within a given cancer type residing in most dominant factor
 max.values <- data.frame(sapply(as.character(unique(percent.classifier$subtype)), function(x){max(percent.classifier$percent[percent.classifier$subtype == x])}))
@@ -214,17 +291,50 @@ dev.off()
 
 
 ## plot contributing factors
-tiff("../Analysis/NMF CNVs K4 components.tiff", width = 1000, height = 1000)
-basismap(nmf.output.cnvs.4)
+tiff("../Analysis/NMF K4 components.tiff")
+basismap(nmf.glioma.broad)
 dev.off()
 ## show relationship between input variables and metagenes, with each variable coded by the dominant metagene it contributes to
 
 
 ## show a consensus map of the clustering based on multiple iterations
-consensusmap(output, annCol = column.annotations$Cancer_Type_Specific)
-
+temp <- readRDS("NMF_OUPUT_1-15.RDS")
+tiff("Consensus_map.jpg",  = 10000, height = 10000)
+consensusmap(temp, annCol = column.annotations$Cancer_Type_Broad)
+dev.off()
 
 ## multiple ranks at multiple runs each time
 output.2_10 <- nmf(nmf.input, 2:10, nrun = 10)
 
 consensusmap(output)
+
+
+
+
+## pull out specific tumor types, order based on which cluster they were assigne
+
+## meningioma vs metastasis
+input.order <- c(classifier[classifier$basis == 2 & classifier$subtype == "Meningioma", "sample"] ,classifier[classifier$basis == 2 & classifier$subtype == "Metastasis", "sample"], 
+                 classifier[classifier$basis == 4 & classifier$subtype == "Meningioma", "sample"], classifier[classifier$basis == 4 & classifier$subtype == "Metastasis", "sample"])
+
+## GBM traditional vs other
+input.order <- c(classifier[classifier$basis == 3 & classifier$subtype == "Glioblastoma", "sample"], classifier[classifier$basis != 3 & classifier$subtype == "Glioblastoma", "sample"])
+
+
+PlotComut(
+    mut.maf1 = alterations.trimmed,
+    broad.cnv.maf = clustering.cnvs.trimmed[rownames(clustering.cnvs.trimmed) != "cnv.middle", ],
+    samples = input.order,
+    input.samples = "SAMPLE_ACCESSION_NBR", 
+    input.genes = "BEST_EFF_GENE", input.mutations = "variant_classification", 
+    dimensions = c(18,10),
+    fixed.order = input.order,
+    col.vector = c("frameshift_indel" = "red", "missense" ="red" , "nonsense" = "red", "splice_site" = "red", "stop_codon" = "red", "in_frame_indel" = "red",
+                   "other" = "red", "arm-level gain" = "red", "arm-level loss" = "red", "2DEL" = "red", "HA" = "red", "indel" = "red", "rearrangement" = "red",
+                   "Glioblastoma" = "black", "AnaplasticAstro" = "green", "Angiocentric" = "orange", "Astro" = "green", "altered" = "red", 
+                   "DiffuseAstro" = "green", "Oligo" = "yellow", "OligoAstro" = "yellow", "PilocyticAstro" = "green", 
+                   "0" = "gray90", "1" = "gray70", "2" = "gray50", "3" = "gray25", "4" = "gray1")
+    ,phenotypes = clustering.clinical[, -3]
+)
+
+
