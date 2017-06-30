@@ -1,5 +1,8 @@
 ## outcomes analysis
 ## adapted from https://www.openintro.org/download.php?file=survival_analysis_in_R&amp%3Breferrer
+## https://socserv.socsci.mcmaster.ca/jfox/Books/Companion/appendix/Appendix-Cox-Regression.pdf
+## https://courses.nus.edu.sg/course/stacar/internet/st3242/handouts/notes1.pdf
+
 
 install.packages("OIsurv")
 library(OIsurv)
@@ -21,15 +24,16 @@ library(OIsurv)
 # }
 # pat.info$DERIVED_DEATH_DT <- DATE
 
-outcome <- master.sheet[master.sheet$Cancer_Type_Broad == "Glioma" & master.sheet$exclude == "" & master.sheet$Deceased %in% c("0", "1"), ]
+outcome <- master.sheet[master.sheet$Cancer_Type_Broad == "Glioma" & master.sheet$exclude %in% c("", "bch") & master.sheet$Deceased %in% c("0", "1"), ]
 
 ## censored values: double check once we have all dates that this is correct
-outcome$DoD[is.na(outcome$DoD)] <- "05/01/2017"
-outcome$DoD <- as.Date(outcome$DoD, "%m/%d/%Y")
+outcome$Outcomes_Date[outcome$Outcomes_Date == ""] <- "05/30/2017"
+outcome$Outcomes_Date <- as.Date(outcome$Outcomes_Date, "%m/%d/%Y")
 
+## format date, get age
 outcome$DoS <- outcome$Date_of_surgery
 outcome$DoS <- as.Date(outcome$DoS, "%m/%d/%Y")
-outcome$time <- as.numeric(outcome$DoD - outcome$DoS)
+outcome$time <- as.numeric(outcome$Outcomes_Date - outcome$DoS)
 outcome <- outcome[!is.na(outcome$time), ]
 outcome <- outcome[outcome$time > 1, ]
 outcome$Date_of_birth <- outcome$DOB
@@ -39,17 +43,20 @@ outcome$Age <- round(as.numeric(outcome$DoS - outcome$DOB) / 365)
 outcome$Age_interval <- "Young"
 outcome$Age_interval[outcome$Age >= 40 & outcome$Age < 65] <- "Middle"
 outcome$Age_interval[outcome$Age >= 65] <- "Old"
+outcome$Age_elderly <- outcome$Age_interval
+outcome$Age_elderly[outcome$Age_elderly == "Middle"] <- "Young"
+
 outcomes.glioma <- outcome[outcome$Cancer_Type_Broad == "Glioma", ]
 master.sheet <- merge(master.sheet, outcomes.glioma[, c("SAMPLE_ACCESSION_NBR", "Age_interval")], all.x = TRUE)
 
 
 ## integrate mutation data from comut plot generated file
-colnames(glioma.mutations)[1] <- "SAMPLE_ACCESSION_NBR"
-outcomes.glioma <- merge(outcomes.glioma, glioma.mutations, "SAMPLE_ACCESSION_NBR")
+colnames(df.wide.glioma)[1] <- "SAMPLE_ACCESSION_NBR"
+outcomes.glioma <- merge(outcomes.glioma, df.wide.glioma[, !(colnames(df.wide.glioma) == "Age_interval")], "SAMPLE_ACCESSION_NBR")
 outcomes.glioma$GBM <- outcomes.glioma$Cancer_Type_Specific == "Glioblastoma"
 outcomes.glioma$MGMT_Binary <- outcomes.glioma$MGMT
-outcomes.glioma$MGMT_Binary[outcomes.glioma$MGMT_Binary == "not given"] <- NA
-outcomes.glioma$mutations1p19q <- outcomes.glioma$mutations.1p == "arm-level loss" & outcomes.glioma$mutations.19q == "arm-level loss"
+outcomes.glioma$MGMT_Binary[outcomes.glioma$MGMT_Binary == "not given" | outcomes.glioma$MGMT_Binary == ""] <- NA
+outcomes.glioma$'1p19q' <- outcomes.glioma$'1p' == "1" & outcomes.glioma$'19q' == "1"
 
 ## generate data.frame for subsequent analysis
 outcomes.GBM <- outcomes.glioma[outcomes.glioma$Cancer_Type_Specific == "Glioblastoma", ]
@@ -61,64 +68,93 @@ surv.LGG <- Surv(outcomes.LGG$time, as.numeric(outcomes.LGG$Deceased))
 surv.GBM <- Surv(outcomes.GBM$time, as.numeric(outcomes.GBM$Deceased))
 
 ## first analyze difference between LGG and GBM
-fit.glioma_vs_gbm <- survfit(surv.gliomas ~ outcomes.glioma$GBM)
+fit.lgg_vs_gbm <- survfit(surv.gliomas ~ outcomes.glioma$GBM)
 
 ## assess statistical significance in difference btween curves
 survdiff(surv.gliomas ~ outcomes.glioma$GBM, subset = T, na.action = options()$na.action)
 
-plot(fit.glioma_vs_gbm, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
+plot(fit.lgg_vs_gbm, xlab = "Days", ylab = "Overall Surival", lty = 1:3, mark.time = TRUE)
 legend(100, .9, c("LGG", "GBM"), lty = 1:3)
+
+summary(fit.lgg_vs_gbm)
+
+
+## baseline prediction for glioma recurrence based on histology
+cox_fit.lgg_vs_gbm <- coxph(surv.gliomas ~ factor(outcomes.glioma$GBM) + factor(outcomes.glioma$Age_elderly))
+summary(cox_fit.lgg_vs_gbm)
+
+## test if prorportional hazards assumption is violated: p <.05 yes for individual variable, GLOBAL for overall effect
+cox.zph(cox_fit.lgg_vs_gbm)
+plot(survfit(cox_fit.lgg_vs_gbm))
+
+
+## compare to adding IDH1 status: use log likelihood ratio test for nested models only
+cox_fit.lgg_vs_gbm_idh1 <- coxph(surv.gliomas ~ factor(outcomes.glioma$GBM) + factor(outcomes.glioma$IDH1) + factor(outcomes.glioma$Age_elderly))
+summary(cox_fit.lgg_vs_gbm_idh1)
+anova(cox_fit.lgg_vs_gbm, cox_fit.lgg_vs_gbm_idh1)
+
+cox_fit.IDH1 <- coxph(surv.gliomas ~ factor(outcomes.glioma$IDH1) + factor(outcomes.glioma$CDKN2A) + factor(outcomes.glioma$`10q`) + factor(outcomes.glioma$Age_elderly))
+summary(cox_fit.IDH1)
+
+## test if prorportional hazards assumption is violated: p <.05 yes for individual variable, GLOBAL for overall effect
+cox.zph(cox_fit.IDH1)
+plot(survfit(cox_fit.IDH1))
+
+
+
+## subtype specific analysis
+
 
 
 ## IDH1 status
-fit.GBM_IDH1 <- survfit(surv.GBM ~ outcomes.GBM$mutations.IDH1)
+fit.GBM_IDH1 <- survfit(surv.GBM ~ outcomes.GBM$IDH1)
 
 ## assess statistical significance in difference btween curves
-survdiff(surv.GBM ~ outcomes.GBM$mutations.IDH1, subset = T, na.action = options()$na.action)
-
-plot(fit.GBM_IDH1, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
+survdiff(surv.GBM ~ outcomes.GBM$IDH1, subset = T, na.action = options()$na.action)
+pdf("Kaplan GBM IDH1.pdf")
+plot(fit.GBM_IDH1, xlab = "Days", ylab = "Overall Surival", lty = 1:3, mark.time = TRUE)
 legend(100, .9, c("IDH1 mut", "IDH1 wt"), lty = 1:3)
-
+dev.off()
 
 ## ATRX within IDH1 mutant tumors
-surv.GBM_IDH1_mt <- Surv(outcomes.GBM$time[outcomes.GBM$mutations.IDH1 != "z"], 
-                         as.numeric(outcomes.GBM$Deceased[outcomes.GBM$mutations.IDH1 != "z"]))
-fit.GBM_IHD1_mt_ATRX <- survfit(surv.GBM_IDH1_mt ~ outcomes.GBM$mutations.ATRX[outcomes.GBM$mutations.IDH1 != "z"])
+surv.GBM_IDH1_mt <- Surv(outcomes.GBM$time[outcomes.GBM$IDH1 != "z"], 
+                         as.numeric(outcomes.GBM$Deceased[outcomes.GBM$IDH1 != "z"]))
+fit.GBM_IHD1_mt_ATRX <- survfit(surv.GBM_IDH1_mt ~ outcomes.GBM$ATRX[outcomes.GBM$IDH1 != "z"])
 plot(fit.GBM_IHD1_mt_ATRX, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
 legend(100, .9, c("ATRX mut", "ATRX wt"), lty = 1:3)
-survdiff(surv.GBM_IDH1_mt ~ outcomes.GBM$mutations.ATRX[outcomes.GBM$mutations.IDH1 != "z"], subset = T, na.action = options()$na.action)
+survdiff(surv.GBM_IDH1_mt ~ outcomes.GBM$ATRX[outcomes.GBM$IDH1 != "z"], subset = T, na.action = options()$na.action)
 
 
 
 ## MGMT status
-fit.GBM_MGMT <- survfit(surv.GBM ~ outcomes.GBM$MGMT)
+fit.GBM_MGMT <- survfit(surv.GBM[!is.na(outcomes.GBM$MGMT_Binary)] ~ outcomes.GBM$MGMT[!is.na(outcomes.GBM$MGMT_Binary)])
 
 ## assess statistical significance in difference btween curves
-survdiff(surv.GBM ~ outcomes.GBM$MGMT, subset = T, na.action = options()$na.action)
-
-plot(fit.GBM_MGMT, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
-legend(100, .9, c("MGMT methlyated", "unknown", "MGMT unmethlyated"), lty = 1:3)
-
+survdiff(surv.GBM[!is.na(outcomes.GBM$MGMT_Binary)] ~ outcomes.GBM$MGMT[!is.na(outcomes.GBM$MGMT_Binary)], subset = T, na.action = options()$na.action)
+pdf("Kaplan GBM MGMT.pdf")
+plot(fit.GBM_MGMT, xlab = "Days", ylab = "Overall Surival", lty = 1:3, mark.time = TRUE)
+legend(100, .9, c("MGMT methlyated", "MGMT unmethlyated"), lty = 1:2)
+dev.off()
 
 
 ## IDH1 status LGG
-fit.LGG_IDH1 <- survfit(surv.LGG ~ outcomes.LGG$mutations.IDH1)
+fit.LGG_IDH1 <- survfit(surv.LGG ~ outcomes.LGG$IDH1)
 
 ## assess statistical significance in difference btween curves
-survdiff(surv.LGG ~ outcomes.LGG$mutations.IDH1, subset = T, na.action = options()$na.action)
-
+survdiff(surv.LGG ~ outcomes.LGG$IDH1, subset = T, na.action = options()$na.action)
+pdf("Kaplan LGG IDH1.pdf")
 plot(fit.LGG_IDH1, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
 legend(100, .9, c("IDH1 mut", "IDH1 wt"), lty = 1:3)
-
+dev.off()
 
 ## MGMT status LGG
-fit.LGG_MGMT <- survfit(surv.LGG ~ outcomes.LGG$MGMT_Binary)
+fit.LGG_MGMT <- survfit(surv.LGG[!is.na(outcomes.LGG$MGMT_Binary)] ~ outcomes.LGG$MGMT_Binary[!is.na(outcomes.LGG$MGMT_Binary)])
 
 ## assess statistical significance in difference btween curves
-survdiff(surv.LGG ~ outcomes.LGG$MGMT_Binary, subset = T, na.action = options()$na.action)
+survdiff(surv.LGG[!is.na(outcomes.LGG$MGMT_Binary)] ~ outcomes.LGG$MGMT_Binary[!is.na(outcomes.LGG$MGMT_Binary)], subset = T, na.action = options()$na.action)
 
 plot(fit.LGG_MGMT, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
-legend(100, .9, c("MGMT methlyated", "unknown", "MGMT unmethlyated"), lty = 1:3)
+legend(100, .9, c("MGMT methlyated", "MGMT unmethlyated"), lty = 1:3)
 
 
 ## cox proportional hazards from http://www.tbrieder.org/epidata/course_e_ex04_task.pdf
@@ -126,7 +162,7 @@ legend(100, .9, c("MGMT methlyated", "unknown", "MGMT unmethlyated"), lty = 1:3)
 
 
 ## baseline prediction for GBM recurrence based on age, MGMT and IDH1 status
-cox_fit.GBM_baseline <- coxph(surv.GBM ~ factor(outcomes.GBM$mutations.IDH1) + factor(outcomes.GBM$Age_interval) + factor(outcomes.GBM$MGMT_Binary))
+cox_fit.GBM_baseline <- coxph(surv.GBM ~ factor(outcomes.GBM$IDH1) + factor(outcomes.GBM$Age_elderly) + factor(outcomes.GBM$MGMT_Binary))
 summary(cox_fit.GBM_baseline)
 
 ## test if prorportional hazards assumption is violated: p <.05 yes for individual variable, GLOBAL for overall effect
@@ -135,9 +171,9 @@ plot(survfit(cox_fit.GBM_baseline))
 
 
 ## example code to get univariate predictors from multiple covariates: taken from https://www.r-bloggers.com/cox-proportional-hazards-model/
-covariates <- c("MGMT_Binary", "Primary","mutations.TP53", "mutations.PTEN", "mutations.NF1", "mutations.EGFR", "mutations.ATRX", "mutations.RB1")
+covariates <- c("MGMT_Binary", "Primary","TP53", "PTEN", "NF1", "EGFR", "ATRX", "RB1")
 colnames(outcomes.GBM) <- gsub("-", "_", colnames(outcomes.GBM))
-covariates <- colnames(outcomes.GBM)[c(17, 30, 37:97, 101)]
+covariates <- colnames(outcomes.GBM)[c(17, 39:64, 74)]
 univ_formulas <- sapply(covariates,
                         function(x) as.formula(paste('Surv(time, as.numeric(Deceased))~', x)))
 
@@ -166,16 +202,44 @@ univ_results <- lapply(univ_models,
 
 res <- t(as.data.frame(univ_results, check.names = FALSE))
 results <- as.data.frame(res)
+results$q.value <- p.adjust(results$p.value, "fdr")
 
-results[order(results$p.value), ]
+results[order(results$q.value), ]
 
-outcomes.GBM$mutations.10q[outcomes.GBM$mutations.10q == "arm-level gain"] <- "z"
-outcomes.GBM$mutations.19p[outcomes.GBM$mutations.19p == "arm-level loss"] <- "z"
-cox_fit.GBM_new <- coxph(surv.GBM ~ factor(Age_interval) + factor(MGMT_Binary) + factor(mutations.IDH1) + factor(mutations.10q) +  
-                             factor(mutations.CDKN2A_cnv) + factor(mutations.CDKN2B_cnv) + factor(mutations.PDGFRA_cnv) + factor(mutations.NF1) +
-                             factor(mutations.PTEN) + factor(mutations.19p) + factor(mutations.BRCA2) + factor(mutations.PRKDC) + factor(mutations.19q), 
-                            data = outcomes.GBM)
-                                #factor(mutations.ATRX) +
+
+## Kaplan plots for univariate predictive markers
+
+fit.GBM_Age <- survfit(surv.GBM ~ outcomes.GBM$Age_elderly)
+
+## assess statistical significance in difference btween curves
+survdiff(surv.GBM ~ outcomes.GBM$Age_elderly, subset = T, na.action = options()$na.action)
+pdf("Kaplan GBM Age.pdf")
+plot(fit.GBM_Age, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
+legend(100, .9, c("> 65", " < 65"), lty = 1:3)
+dev.off()
+
+fit.GBM_CDKN2A <- survfit(surv.GBM ~ outcomes.GBM$CDKN2A)
+
+## assess statistical significance in difference btween curves
+survdiff(surv.GBM ~ outcomes.GBM$CDKN2A, subset = T, na.action = options()$na.action)
+pdf("Kaplan GBM CDKN2A.pdf")
+plot(fit.GBM_CDKN2A, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
+legend(100, .9, c("wt", "mut"), lty = 1:3)
+dev.off()
+
+fit.GBM_PDGFRA <- survfit(surv.GBM ~ outcomes.GBM$PDGFRA)
+
+## assess statistical significance in difference btween curves
+survdiff(surv.GBM ~ outcomes.GBM$PDGFRA, subset = T, na.action = options()$na.action)
+pdf("Kaplan GBM CDKN2A.pdf")
+plot(fit.GBM_PDGFRA, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
+legend(100, .9, c("wt", "mut"), lty = 1:3)
+dev.off()
+
+
+cox_fit.GBM_new <- coxph(surv.GBM ~ factor(Age_elderly) + factor(MGMT_Binary) + factor(IDH1) +  
+                             factor(CDKN2A), data = outcomes.GBM)
+
 
 summary(cox_fit.GBM_new)
 
@@ -184,9 +248,9 @@ cox.zph(cox_fit.GBM_new)
 plot(survfit(cox_fit.GBM_new))
 
 
-cox_fit.GBM_reduced <- coxph(surv.GBM ~ factor(Age_interval) + factor(MGMT_Binary) + factor(mutations.NF1) + factor(mutations.PRKDC), 
+cox_fit.GBM_reduced <- coxph(surv.GBM ~ factor(Age_interval) + factor(MGMT_Binary) + factor(NF1) + factor(PRKDC), 
                          data = outcomes.GBM)
-#factor(mutations.ATRX) +
+#factor(ATRX) +
 
 summary(cox_fit.GBM_reduced)
 
@@ -195,9 +259,9 @@ summary(cox_fit.GBM_reduced)
 
 # do same thing for LGG
 colnames(outcomes.LGG) <- gsub("-", "_", colnames(outcomes.LGG))
-covariates <- colnames(outcomes.LGG)[c(17, 30, 37:117, 121:122)]
+covariates <- colnames(outcomes.LGG)[c(17, 39:64, 74)]
 for (i in 1:length(covariates)){
-    if (sum(outcomes.LGG[, colnames(outcomes.LGG) == covariates[i]] == "z") == nrow(outcomes.LGG)){
+    if (sum(outcomes.LGG[, colnames(outcomes.LGG) == covariates[i]] == "0") == nrow(outcomes.LGG)){
         covariates[i] <- "remove"
     }
 }
@@ -231,21 +295,21 @@ univ_results <- lapply(univ_models,
 res <- t(as.data.frame(univ_results, check.names = FALSE))
 results <- as.data.frame(res)
 
-results[order(results$q.value), ]
 results$q.value <- p.adjust(results$p.value, "fdr")
+results[order(results$q.value), ]
 
-outcomes.LGG$mutations.10q[outcomes.LGG$mutations.10q == "arm-level gain"] <- "z"
-outcomes.LGG$mutations.7p[outcomes.LGG$mutations.7p == "arm-level loss"] <- "z"
-outcomes.LGG$mutations.17p[outcomes.LGG$mutations.7p == "arm-level loss"] <- "z"
-outcomes.LGG$mutations.7p[outcomes.LGG$mutations.7p == "arm-level loss"] <- "z"
-table(outcomes.LGG$mutations.PIK3C2B_cnv)
+outcomes.LGG$10q[outcomes.LGG$10q == "arm-level gain"] <- "z"
+outcomes.LGG$7p[outcomes.LGG$7p == "arm-level loss"] <- "z"
+outcomes.LGG$17p[outcomes.LGG$7p == "arm-level loss"] <- "z"
+outcomes.LGG$7p[outcomes.LGG$7p == "arm-level loss"] <- "z"
+table(outcomes.LGG$PIK3C2B_cnv)
 
-cox_fit.LGG_new <- coxph(surv.LGG ~ factor(mutations.EGFR) + factor(mutations.MSH6) + factor(mutations.PTEN) + factor(mutations.ARID2) + factor(mutations.CDKN2A_cnv) +
-                             factor(mutations.IDH1), data = outcomes.LGG) 
-                            #+ factor(mutations.EGFR_cnv) + factor(mutations.APC) + factor(mutations.RB1) + factor(mutations.CDKN2B_cnv) +
-                             #factor(mutations.SETD2) + factor(mutations.BRCA2) + factor(mutations.10q) + factor(mutations.Grade) + factor(Age_interval) + factor(mutations.NF1) +
-                             #factor(mutations.TERT) + factor(mutations.7p) + factor(mutations.7q) + factor(mutations.CREBBP) + factor(mutations.ARID1B) +
-                             #factor(mutations.13q) + factor(mutations.MDM4_cnv) + factor(mutations.ATM), data = outcomes.LGG)
+cox_fit.LGG_new <- coxph(surv.LGG ~ factor(EGFR) + factor(PTEN) + factor(CDKN2A) +  factor(KDR) +  factor(Age_elderly) + factor(RB1) + factor(APC) +
+                             factor(IDH1), data = outcomes.LGG) 
+                            #+ factor(EGFR_cnv) + factor(APC) + factor(RB1) + factor(CDKN2B_cnv) +
+                             #factor(SETD2) + factor(BRCA2) + factor(10q) + factor(Grade) + factor(Age_interval) + factor(NF1) +
+                             #factor(TERT) + factor(7p) + factor(7q) + factor(CREBBP) + factor(ARID1B) +
+                             #factor(13q) + factor(MDM4_cnv) + factor(ATM), data = outcomes.LGG)
 
 
 summary(cox_fit.LGG_new)
@@ -255,8 +319,8 @@ cox.zph(cox_fit.LGG_new)
 plot(survfit(cox_fit.LGG_new))
 
 
-cox_fit.LGG_reduced <- coxph(surv.LGG ~ factor(mutations.MSH6) + factor(mutations.ARID2) + factor(mutations.IDH1), data = outcomes.LGG)
-#factor(mutations.ATRX) +
+cox_fit.LGG_reduced <- coxph(surv.LGG ~ factor(MSH6) + factor(ARID2) + factor(IDH1), data = outcomes.LGG)
+#factor(ATRX) +
 
 summary(cox_fit.LGG_reduced)
 
@@ -278,4 +342,37 @@ survdiff(surv.LGG ~ outcomes.LGG$mutations1p19q, subset = T, na.action = options
 
 plot(fit.LGG_age, xlab = "Days", ylab = "Overall Surival", lty = 1:3)
 legend(100, .9, c("middle", "old", "young"), lty = 1:3)
+
+
+## 1P19Q status
+fit.glioma_age<- survfit(surv.gliomas ~ outcomes.glioma$Age_elderly)
+
+## assess statistical significance in difference btween curves
+survdiff(surv.gliomas ~ outcomes.glioma$Age_elderly, subset = T, na.action = options()$na.action)
+
+plot(fit.glioma_age, xlab = "Days", ylab = "Overall Surival", lty = 1:2)
+legend(100, .9, c("Elderly", "Young"), lty = 1:3)
+
+
+
+
+## Decision Tree outcomes analysis
+outcomes.GBM$branch3_vs_4[outcomes.GBM$IDH1 == 0 & outcomes.GBM$BRAF == 1] <- "branch3"
+outcomes.GBM$branch3_vs_4[outcomes.GBM$IDH1 == 0 & outcomes.GBM$BRAF == 0] <- "branch4"
+
+fit.GBM_decision_tree <- survfit(surv.GBM[!is.na(outcomes.GBM$branch3_vs_4), ] ~ outcomes.GBM[!is.na(outcomes.GBM$branch3_vs_4), "branch3_vs_4"])
+survdiff(surv.GBM[!is.na(outcomes.GBM$branch3_vs_4), ] ~ outcomes.GBM[!is.na(outcomes.GBM$branch3_vs_4), "branch3_vs_4"])
+plot(fit.GBM_decision_tree, xlab = "Days", ylab = "Overall Surival", lty = 1:2)
+legend(100, .9, c("BRAF +", "BRAF -"), lty = 1:3)
+
+
+
+## NMF cluster analysis
+outcomes.GBM$NMF_cluster[outcomes.GBM$SAMPLE_ACCESSION_NBR %in% rownames(classifier[classifier$subtype == "Glioblastoma" & classifier$basis == 3, ])] <- "typical"
+outcomes.GBM$NMF_cluster[outcomes.GBM$SAMPLE_ACCESSION_NBR %in% rownames(classifier[classifier$subtype == "Glioblastoma" & classifier$basis != 3, ])] <- "atypical"
+
+fit.GBM_NMF <- survfit(surv.GBM ~ outcomes.GBM$NMF_cluster)
+survdiff(surv.GBM ~ outcomes.GBM$NMF_cluster)
+plot(fit.GBM_NMF, xlab = "Days", ylab = "Overall Surival", lty = 1:2)
+legend(100, .9, c("Non-GBM GBMs", "GBM GBMs"), lty = 1:3)
 
